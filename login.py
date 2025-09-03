@@ -5,49 +5,105 @@ import subprocess
 import os
 from PyQt5.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QLabel,
-    QLineEdit, QPushButton, QMessageBox
+    QLineEdit, QPushButton, QMessageBox, QHBoxLayout, QCheckBox
 )
 from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QPixmap, QPalette, QBrush, QColor
 
 class LoginApp(QWidget):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Inicio de Sesión")
-        self.setFixedSize(350, 300)
         self.setup_ui()
-        self.center_window()
-
-    def center_window(self):
-        screen = QApplication.desktop().screenGeometry()
-        size = self.geometry()
-        self.move(
-            (screen.width() - size.width()) // 2,
-            (screen.height() - size.height()) // 2
-        )
 
     def setup_ui(self):
-        main_layout = QVBoxLayout()
-        main_layout.setSpacing(10)
-        main_layout.setContentsMargins(20, 20, 20, 20)
+        # Fondo con imagen
+        self.setAutoFillBackground(True)
+        palette = QPalette()
+        pixmap = QPixmap("mar.jpg")
+        palette.setBrush(QPalette.Window, QBrush(pixmap))
+        self.setPalette(palette)
 
-        title_label = QLabel("Sistema de Farmacia")
+        # Layout principal centrado
+        main_layout = QVBoxLayout(self)
+        main_layout.setAlignment(Qt.AlignCenter)
+
+        # Caja central translúcida
+        login_box = QWidget(self)
+        login_box.setFixedWidth(350)
+        login_box.setStyleSheet("""
+            QWidget {
+                background: rgba(40, 20, 80, 0.7);
+                border-radius: 18px;
+            }
+        """)
+        box_layout = QVBoxLayout(login_box)
+        box_layout.setContentsMargins(30, 30, 30, 30)
+        box_layout.setSpacing(18)
+
+        # Título
+        title_label = QLabel("Sistema de Registro")
         title_label.setAlignment(Qt.AlignCenter)
-        title_label.setStyleSheet("font-size: 18px; font-weight: bold;")
+        title_label.setStyleSheet("color: white; font-size: 22px; font-weight: bold;")
+        box_layout.addWidget(title_label)
 
-        main_layout.addWidget(title_label)
-
+        # Usuario
         self.input_usuario = QLineEdit()
         self.input_usuario.setPlaceholderText("Usuario")
-        main_layout.addWidget(self.input_usuario)
+        self.input_usuario.setStyleSheet("""
+            QLineEdit {
+                background: rgba(255,255,255,0.15);
+                border: 1.5px solid #fff;
+                border-radius: 8px;
+                color: #fff;
+                padding: 8px 12px;
+                font-size: 15px;
+            }
+            QLineEdit:focus {
+                border: 2px solid #a29bfe;
+                background: rgba(255,255,255,0.25);
+            }
+        """)
+        box_layout.addWidget(self.input_usuario)
 
+        # Contraseña
         self.input_contraseña = QLineEdit()
         self.input_contraseña.setPlaceholderText("Contraseña")
         self.input_contraseña.setEchoMode(QLineEdit.Password)
-        main_layout.addWidget(self.input_contraseña)
+        self.input_contraseña.setStyleSheet("""
+            QLineEdit {
+                background: rgba(255,255,255,0.15);
+                border: 1.5px solid #fff;
+                border-radius: 8px;
+                color: #fff;
+                padding: 8px 12px;
+                font-size: 15px;
+            }
+            QLineEdit:focus {
+                border: 2px solid #a29bfe;
+                background: rgba(255,255,255,0.25);
+            }
+        """)
+        box_layout.addWidget(self.input_contraseña)
 
+        # Botón Login
         self.boton_login = QPushButton("Iniciar Sesión")
+        self.boton_login.setStyleSheet("""
+            QPushButton {
+                background: #fff;
+                color: #5f27cd;
+                font-size: 17px;
+                font-weight: bold;
+                border-radius: 20px;
+                padding: 10px 0;
+            }
+            QPushButton:hover {
+                background: #a29bfe;
+                color: #fff;
+            }
+        """)
         self.boton_login.clicked.connect(self.verificar_login)
-        main_layout.addWidget(self.boton_login)
+        box_layout.addWidget(self.boton_login)
 
         # Obtener números de administradores desde la base de datos
         try:
@@ -69,10 +125,11 @@ class LoginApp(QWidget):
 
         info_label = QLabel(info_text)
         info_label.setAlignment(Qt.AlignCenter)
-        info_label.setStyleSheet("font-size: 11px; color: gray;")
-        main_layout.addWidget(info_label)
+        info_label.setStyleSheet("font-size: 11px; color: #eee;")
+        box_layout.addWidget(info_label)
 
-        self.setLayout(main_layout)
+        login_box.setLayout(box_layout)
+        main_layout.addWidget(login_box, alignment=Qt.AlignCenter)
 
         self.input_usuario.returnPressed.connect(self.verificar_login)
         self.input_contraseña.returnPressed.connect(self.verificar_login)
@@ -144,5 +201,5 @@ def obtener_db_path():
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     ventana = LoginApp()
-    ventana.show()
+    ventana.showMaximized()
     sys.exit(app.exec_())
