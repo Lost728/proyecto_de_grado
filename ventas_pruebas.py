@@ -5,7 +5,7 @@ import subprocess
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QLabel, QLineEdit, QPushButton, QTableWidget, QTableWidgetItem, 
-    QMessageBox, QSpinBox, QHeaderView, QComboBox
+    QMessageBox, QSpinBox, QHeaderView, QComboBox, QListWidget, QListWidgetItem
 )
 from PyQt5.QtCore import Qt
 from datetime import datetime, timedelta
@@ -131,6 +131,14 @@ class VentasWindow(QMainWindow):
         btn_menu.setStyleSheet("background-color: #FFD700; font-size: 14px;")
         btn_menu.clicked.connect(self.ir_menu_principal)
         main_layout.addWidget(btn_menu, alignment=Qt.AlignLeft)
+
+        # Botón y formulario de devoluciones
+        devol_layout = QHBoxLayout()
+        btn_devolucion = QPushButton("Registrar Devolución")
+        btn_devolucion.setStyleSheet("background-color: #e0e7ef; font-weight: bold;")
+        btn_devolucion.clicked.connect(self.mostrar_formulario_devolucion)
+        devol_layout.addWidget(btn_devolucion)
+        main_layout.addLayout(devol_layout)
 
         self.tabla.selectionModel().selectionChanged.connect(self.actualizar_spinbox)
         self.cargar_todos_productos()
@@ -338,6 +346,152 @@ class VentasWindow(QMainWindow):
         self.label_total.setText("Total: 0.00 Bs.")
         QMessageBox.information(self, "Venta procesada", "Venta realizada correctamente.")
         self.cargar_todos_productos()
+
+    def mostrar_formulario_devolucion(self):
+        from PyQt5.QtWidgets import (
+            QDialog, QFormLayout, QLineEdit, QComboBox, QTextEdit, QPushButton, QSpinBox, QListWidget, QListWidgetItem
+        )
+
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Registrar Devolución")
+        dialog.setMinimumWidth(400)
+        form = QFormLayout(dialog)
+
+        input_codigo = QLineEdit()
+        input_codigo.setPlaceholderText("Código del producto")
+        form.addRow("Código:", input_codigo)
+
+        input_nombre = QLineEdit()
+        input_nombre.setPlaceholderText("Nombre del producto")
+        form.addRow("Nombre producto:", input_nombre)
+
+        # Lista para autocompletar
+        lista_productos = QListWidget()
+        lista_productos.setMaximumHeight(80)
+        form.addRow("Coincidencias:", lista_productos)
+
+        def buscar_productos():
+            codigo = input_codigo.text().strip()
+            nombre = input_nombre.text().strip()
+            query = "SELECT id_producto, nombre, codigo FROM productos WHERE 1=1"
+            params = []
+            if codigo:
+                query += " AND codigo LIKE ?"
+                params.append(f"%{codigo}%")
+            if nombre:
+                query += " AND nombre LIKE ?"
+                params.append(f"%{nombre}%")
+            self.cursor.execute(query, params)
+            productos = self.cursor.fetchall()
+            lista_productos.clear()
+            for id_producto, nombre_p, codigo_p in productos:
+                item = QListWidgetItem(f"{nombre_p} (Código: {codigo_p})")
+                item.setData(Qt.UserRole, (id_producto, nombre_p, codigo_p))
+                lista_productos.addItem(item)
+
+        input_codigo.textChanged.connect(buscar_productos)
+        input_nombre.textChanged.connect(buscar_productos)
+
+        def autocompletar_producto(item):
+            id_producto, nombre_p, codigo_p = item.data(Qt.UserRole)
+            input_codigo.setText(codigo_p)
+            input_nombre.setText(nombre_p)
+            lista_productos.clear()
+
+        lista_productos.itemClicked.connect(autocompletar_producto)
+
+        spin_cantidad = QSpinBox()
+        spin_cantidad.setMinimum(1)
+        spin_cantidad.setMaximum(1000)
+        form.addRow("Cantidad a devolver:", spin_cantidad)
+
+        input_motivo = QTextEdit()
+        input_motivo.setPlaceholderText("Motivo de la devolución")
+        input_motivo.setFixedHeight(40)
+        form.addRow("Motivo:", input_motivo)
+
+        combo_tipo_devolucion = QComboBox()
+        combo_tipo_devolucion.addItems(["Devolución simple", "Devolución por defecto"])
+        form.addRow("Tipo de devolución:", combo_tipo_devolucion)
+
+        combo_empleado = QComboBox()
+        self.cursor.execute("SELECT id_empleado, nombre FROM empleado")
+        for id_empleado, nombre in self.cursor.fetchall():
+            combo_empleado.addItem(f"{nombre} (ID:{id_empleado})", id_empleado)
+        form.addRow("Empleado:", combo_empleado)
+
+        btn_registrar = QPushButton("Registrar")
+        btn_registrar.setStyleSheet("background-color: #FFD700; font-weight: bold;")
+        form.addRow(btn_registrar)
+
+        def buscar_id_producto(codigo, nombre):
+            if codigo:
+                self.cursor.execute("SELECT id_producto FROM productos WHERE codigo = ?", (codigo,))
+                result = self.cursor.fetchone()
+                if result:
+                    return result[0]
+            if nombre:
+                self.cursor.execute("SELECT id_producto FROM productos WHERE nombre LIKE ?", (f"%{nombre}%",))
+                result = self.cursor.fetchone()
+                if result:
+                    return result[0]
+            return None
+
+        def registrar_devolucion():
+            codigo = input_codigo.text().strip()
+            nombre = input_nombre.text().strip()
+            cantidad = spin_cantidad.value()
+            motivo = input_motivo.toPlainText().strip()
+            tipo_devolucion = combo_tipo_devolucion.currentText()
+            id_empleado = combo_empleado.currentData()
+            fecha = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+            if not (codigo or nombre) or not motivo or not id_empleado:
+                QMessageBox.warning(dialog, "Campos requeridos", "Complete código o nombre, motivo y empleado.")
+                return
+
+            id_producto = buscar_id_producto(codigo, nombre)
+            if not id_producto:
+                QMessageBox.warning(dialog, "Producto no encontrado", "No existe un producto con ese código o nombre.")
+                return
+
+            try:
+                # Registrar la devolución en la tabla devoluciones
+                self.cursor.execute(
+                    "INSERT INTO devoluciones (id_producto, cantidad, motivo, fecha_devolucion, id_empleado) VALUES (?, ?, ?, ?, ?)",
+                    (id_producto, cantidad, motivo, fecha, id_empleado)
+                )
+                self.conexion.commit()
+
+                # Si es devolución simple, sumar la cantidad al stock del producto (y actualizar cajas/unidades si corresponde)
+                if tipo_devolucion == "Devolución simple":
+                    self.cursor.execute("SELECT cajas, unidades, stock FROM productos WHERE id_producto = ?", (id_producto,))
+                    cajas_actual, unidades_actual, stock_actual = self.cursor.fetchone()
+                    nuevo_stock = stock_actual + cantidad
+                    if cajas_actual and unidades_actual and cajas_actual > 0 and unidades_actual > 0:
+                        nuevas_cajas = nuevo_stock // unidades_actual
+                        nuevas_unidades = nuevo_stock % unidades_actual
+                        self.cursor.execute(
+                            "UPDATE productos SET cajas = ?, unidades = ?, stock = ? WHERE id_producto = ?",
+                            (nuevas_cajas, nuevas_unidades, nuevo_stock, id_producto)
+                        )
+                    else:
+                        self.cursor.execute(
+                            "UPDATE productos SET stock = ? WHERE id_producto = ?",
+                            (nuevo_stock, id_producto)
+                        )
+                    self.conexion.commit()
+                    QMessageBox.information(dialog, "Devolución registrada", f"La devolución se registró y se reincorporaron {cantidad} producto(s) al stock.")
+                else:
+                    QMessageBox.information(dialog, "Devolución registrada", "La devolución se registró como defectuosa y no se reincorporó al stock.")
+
+                dialog.accept()
+                self.cargar_todos_productos()
+            except Exception as e:
+                QMessageBox.critical(dialog, "Error", f"No se pudo registrar la devolución:\n{e}")
+
+        btn_registrar.clicked.connect(registrar_devolucion)
+        dialog.exec_()
 
     def abrir_script(self, script):
         try:
