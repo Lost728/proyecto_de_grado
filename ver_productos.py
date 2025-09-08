@@ -431,14 +431,19 @@ class ProductManagementWindow(QMainWindow):
             except Exception:
                 unidades_por_paquete_db = unidades_por_paquete  # Si falla, usa el valor de productos
 
-            # Si no hay dato en productos_unidades, usa el valor de productos
             if unidades_por_paquete_db is None:
                 unidades_por_paquete_db = unidades_por_paquete
 
-            # Paquetes totales = paquetes * cajas
-            paquetes_totales = (paquetes if paquetes else 0) * (cajas if cajas else 0)
-            # Unidades totales = paquetes_totales * unidades_por_paquete_db
-            unidades_totales = paquetes_totales * (unidades_por_paquete_db if unidades_por_paquete_db else 0) + (unidades_sueltas if unidades_sueltas else 0)
+            # Lógica mejorada para el conteo
+            if cajas and cajas > 0:
+                paquetes_totales = (paquetes if paquetes else 0) * cajas
+                unidades_totales = paquetes_totales * (unidades_por_paquete_db if unidades_por_paquete_db else 0) + (unidades_sueltas if unidades_sueltas else 0)
+            elif paquetes and paquetes > 0:
+                paquetes_totales = paquetes
+                unidades_totales = paquetes_totales * (unidades_por_paquete_db if unidades_por_paquete_db else 0) + (unidades_sueltas if unidades_sueltas else 0)
+            else:
+                paquetes_totales = 0
+                unidades_totales = unidades_sueltas if unidades_sueltas else 0
 
             # Código
             self.table.setItem(row_num, 0, QTableWidgetItem(str(codigo)))
@@ -452,9 +457,9 @@ class ProductManagementWindow(QMainWindow):
             self.table.setItem(row_num, 4, QTableWidgetItem(str(cajas)))
             # Paquetes (sueltos)
             self.table.setItem(row_num, 5, QTableWidgetItem(str(paquetes)))
-            # Paquetes totales (paquetes * cajas)
+            # Paquetes totales
             self.table.setItem(row_num, 6, QTableWidgetItem(f"{paquetes_totales:,}".replace(",", ".")))
-            # Unidades por paquete (desde productos_unidades)
+            # Unidades por paquete
             self.table.setItem(row_num, 7, QTableWidgetItem(f"{unidades_por_paquete_db:,}".replace(",", ".")))
             # Unidades totales
             self.table.setItem(row_num, 8, QTableWidgetItem(f"{unidades_totales:,}".replace(",", ".")))
@@ -485,7 +490,13 @@ class ProductManagementWindow(QMainWindow):
             cajas = product[7]
             paquetes_por_caja = product[11]
             paquetes_sueltos = product[8]
-            paquetes_totales = (cajas if cajas else 0) * (paquetes_por_caja if paquetes_por_caja else 0) + (paquetes_sueltos if paquetes_sueltos else 0)
+            # Suma los paquetes totales según la lógica mejorada
+            if cajas and cajas > 0:
+                paquetes_totales = (paquetes_sueltos if paquetes_sueltos else 0) * cajas
+            elif paquetes_sueltos and paquetes_sueltos > 0:
+                paquetes_totales = paquetes_sueltos
+            else:
+                paquetes_totales = 0
             total_paquetes += paquetes_totales
 
         # Puedes mostrarlo en una StatsCard arriba de la tabla:
@@ -496,7 +507,7 @@ class ProductManagementWindow(QMainWindow):
         # Agrega una fila resumen al final
         resumen_row = self.table.rowCount()
         self.table.insertRow(resumen_row)
-        self.table.setSpan(resumen_row, 0, 1, 6)  # Unir las primeras 6 columnas
+        self.table.setSpan(resumen_row, 0, 1, 6)
         self.table.setItem(resumen_row, 0, QTableWidgetItem("TOTAL PAQUETES"))
         self.table.setItem(resumen_row, 6, QTableWidgetItem(str(total_paquetes)))
 
