@@ -555,7 +555,11 @@ class DBManager(QMainWindow):
 
         btn_ver_datos = QPushButton("📊 Ver Datos")
         btn_ver_datos.setProperty("class", "primary")
-        btn_ver_datos.clicked.connect(self.mostrar_info_tabla_data)  # ← Cambia aquí
+        btn_ver_datos.clicked.connect(self.mostrar_info_tabla_data)
+
+        btn_actualizar = QPushButton("🔄 Actualizar")
+        btn_actualizar.setProperty("class", "primary")
+        btn_actualizar.clicked.connect(self.cargar_datos_tabla)  # <-- Actualiza la tabla
 
         btn_agregar_fila = QPushButton("➕ Agregar")
         btn_agregar_fila.setProperty("class", "success")
@@ -572,6 +576,7 @@ class DBManager(QMainWindow):
         controls_layout.addWidget(QLabel("Tabla:"))
         controls_layout.addWidget(self.combo_tablas_data)
         controls_layout.addWidget(btn_ver_datos)
+        controls_layout.addWidget(btn_actualizar)  # <-- Botón de actualizar
         controls_layout.addWidget(btn_agregar_fila)
         controls_layout.addWidget(btn_eliminar_fila)
         controls_layout.addWidget(btn_guardar_cambios)
