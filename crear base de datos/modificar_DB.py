@@ -546,29 +546,29 @@ class DBManager(QMainWindow):
         """Crea la pestaña de visualización de datos"""
         tab = QWidget()
         layout = QVBoxLayout(tab)
-        
+
         # Controles superiores
         controls_layout = QHBoxLayout()
-        
+
         self.combo_tablas_data = QComboBox()
         self.combo_tablas_data.currentTextChanged.connect(self.cargar_datos_tabla)
-        
+
         btn_ver_datos = QPushButton("📊 Ver Datos")
         btn_ver_datos.setProperty("class", "primary")
-        btn_ver_datos.clicked.connect(self.cargar_datos_tabla)
-        
+        btn_ver_datos.clicked.connect(self.mostrar_info_tabla_data)  # ← Cambia aquí
+
         btn_agregar_fila = QPushButton("➕ Agregar")
         btn_agregar_fila.setProperty("class", "success")
         btn_agregar_fila.clicked.connect(self.agregar_fila)
-        
+
         btn_eliminar_fila = QPushButton("➖ Eliminar")
         btn_eliminar_fila.setProperty("class", "danger")
         btn_eliminar_fila.clicked.connect(self.eliminar_fila)
-        
+
         btn_guardar_cambios = QPushButton("💾 Guardar")
         btn_guardar_cambios.setProperty("class", "success")
         btn_guardar_cambios.clicked.connect(self.guardar_cambios)
-        
+
         controls_layout.addWidget(QLabel("Tabla:"))
         controls_layout.addWidget(self.combo_tablas_data)
         controls_layout.addWidget(btn_ver_datos)
@@ -576,7 +576,7 @@ class DBManager(QMainWindow):
         controls_layout.addWidget(btn_eliminar_fila)
         controls_layout.addWidget(btn_guardar_cambios)
         controls_layout.addStretch()
-        
+
         # Tabla de datos
         self.table_widget = QTableWidget()
         self.table_widget.setAlternatingRowColors(True)
@@ -584,137 +584,86 @@ class DBManager(QMainWindow):
         self.table_widget.horizontalHeader().setStretchLastSection(True)
         self.table_widget.setContextMenuPolicy(Qt.CustomContextMenu)
         self.table_widget.customContextMenuRequested.connect(self.mostrar_menu_contextual)
-        
+
         layout.addLayout(controls_layout)
         layout.addWidget(self.table_widget)
-        
+
         return tab
     
     def mostrar_info_tabla_data(self):
-        """Muestra información de la tabla en la pestaña de datos"""
+        """Muestra información de la tabla en la pestaña de datos (sin dbstat)"""
         tabla = self.combo_tablas_data.currentText()
         if not tabla:
             QMessageBox.warning(self, "Sin selección", "Selecciona una tabla.")
             return
-        
+
         try:
-            
             # Obtener información de columnas
             self.cursor.execute(f"PRAGMA table_info({tabla});")
             columnas_info = self.cursor.fetchall()
-        
+
             # Obtener conteo de registros
             self.cursor.execute(f"SELECT COUNT(*) FROM {tabla};")
             total_filas = self.cursor.fetchone()[0]
-        
-            # Obtener tamaño aproximado de la tabla
-            self.cursor.execute(f"SELECT SUM(pgsize) FROM dbstat WHERE name='{tabla}';")
-            tamaño_bytes = self.cursor.fetchone()[0] or 0
-            tamaño_kb = tamaño_bytes / 1024
-        
+
             # Construir mensaje de información
             info = f"📊 Información de la tabla: {tabla}\n"
             info += "═" * 50 + "\n"
-            info += f"• Total de registros: {total_filas:,}\n"
-            info += f"• Tamaño aproximado: {tamaño_kb:,.2f} KB\n\n"
+            info += f"• Total de registros: {total_filas:,}\n\n"
             info += "🔷 Estructura de columnas:\n"
-        
+
             for col in columnas_info:
                 nombre = col[1]
                 tipo = col[2]
                 pk = "🔑 PRIMARY KEY" if col[5] else ""
                 not_null = "NOT NULL" if col[3] else ""
                 default = f"DEFAULT {col[4]}" if col[4] else ""
-            
+
                 info += f"\n┌ {nombre}\n"
                 info += f"├ Tipo: {tipo}\n"
                 if pk: info += f"├ {pk}\n"
                 if not_null: info += f"├ {not_null}\n"
                 if default: info += f"├ {default}\n"
-        
+
             # Mostrar diálogo con la información
             dialog = QDialog(self)
             dialog.setWindowTitle(f"Información de tabla: {tabla}")
             dialog.setMinimumWidth(500)
-        
+
             layout = QVBoxLayout()
-        
+
             text_edit = QTextEdit()
             text_edit.setReadOnly(True)
             text_edit.setFont(QFont("Consolas", 10))
             text_edit.setText(info)
-        
+
+            btn_copiar = QPushButton("📋 Copiar")
+            btn_copiar.clicked.connect(lambda: self.copiar_texto_portapapeles(text_edit.toPlainText()))
+
             btn_cerrar = QPushButton("Cerrar")
             btn_cerrar.clicked.connect(dialog.close)
-        
+
+            btns_layout = QHBoxLayout()
+            btns_layout.addStretch()
+            btns_layout.addWidget(btn_copiar)
+            btns_layout.addWidget(btn_cerrar)
+
             layout.addWidget(text_edit)
-            layout.addWidget(btn_cerrar, alignment=Qt.AlignRight)
-        
+            layout.addLayout(btns_layout)
+
             dialog.setLayout(layout)
             dialog.exec_()
-            
+
         except Exception as e:
             QMessageBox.critical(self, "Error", f"No se pudo obtener información de la tabla:\n{e}")
 
-    def create_query_tab(self):
-        """Crea la pestaña de consultas SQL"""
-        tab = QWidget()
-        layout = QVBoxLayout(tab)
-        
-        # Editor de consultas
-        query_group = QGroupBox("Editor de Consultas SQL")
-        query_layout = QVBoxLayout(query_group)
-        
-        self.query_editor = QTextEdit()
-        self.query_editor.setPlaceholderText(
-            "Escribe tu consulta SQL aquí...\n\n"
-            "Ejemplos:\n"
-            "SELECT * FROM tabla_nombre;\n"
-            "INSERT INTO tabla_nombre (columna1, columna2) VALUES ('valor1', 'valor2');\n"
-            "UPDATE tabla_nombre SET columna1 = 'nuevo_valor' WHERE id = 1;"
-        )
-        self.query_editor.setFont(QFont("Consolas", 10))
-        self.query_editor.setMinimumHeight(150)
-        
-        query_controls = QHBoxLayout()
-        btn_ejecutar = QPushButton("▶ Ejecutar")
-        btn_ejecutar.setProperty("class", "success")
-        btn_ejecutar.clicked.connect(self.ejecutar_consulta)
-        
-        btn_limpiar = QPushButton("🧹 Limpiar")
-        btn_limpiar.clicked.connect(self.query_editor.clear)
-        
-        btn_guardar_consulta = QPushButton("💾 Guardar")
-        btn_guardar_consulta.clicked.connect(self.guardar_consulta)
-        
-        query_controls.addWidget(btn_ejecutar)
-        query_controls.addWidget(btn_limpiar)
-        query_controls.addWidget(btn_guardar_consulta)
-        query_controls.addStretch()
-        
-        query_layout.addWidget(self.query_editor)
-        query_layout.addLayout(query_controls)
-        
-        # Resultados
-        results_group = QGroupBox("Resultados")
-        results_layout = QVBoxLayout(results_group)
-        
-        self.results_table = QTableWidget()
-        self.results_table.setAlternatingRowColors(True)
-        self.results_table.horizontalHeader().setStretchLastSection(True)
-        
-        results_layout.addWidget(self.results_table)
-        
-        # Splitter para dividir editor y resultados
-        splitter = QSplitter(Qt.Vertical)
-        splitter.addWidget(query_group)
-        splitter.addWidget(results_group)
-        splitter.setStretchFactor(0, 1)
-        splitter.setStretchFactor(1, 2)
-        
-        layout.addWidget(splitter)
-        
-        return tab
+    def copiar_texto_portapapeles(self, texto):
+        """Copia el texto recibido al portapapeles"""
+        if texto:
+            QApplication.clipboard().setText(texto)
+            self.status_bar.showMessage("Información copiada al portapapeles", 2000)
+        else:
+            QMessageBox.information(self, "Sin información", "No hay información para copiar.")
 
     def crear_nueva_db(self):
         """Crea una nueva base de datos"""
@@ -865,35 +814,62 @@ class DBManager(QMainWindow):
             QMessageBox.critical(self, "Error", f"Error al crear tabla:\n{e}")
 
     def mostrar_info_tabla(self):
-        """Muestra información detallada de una tabla"""
+        """Muestra información detallada de una tabla con opción de copiar"""
         tabla = self.combo_tablas.currentText()
         if not tabla:
             QMessageBox.warning(self, "Sin selección", "Selecciona una tabla.")
             return
-            
+        
         try:
             # Obtener información de columnas
             self.cursor.execute(f"PRAGMA table_info({tabla});")
             columnas = self.cursor.fetchall()
-        
+    
             # Obtener datos de la tabla
             self.cursor.execute(f"SELECT COUNT(*) FROM {tabla};")
             total_filas = self.cursor.fetchone()[0]
-        
-            # Crear mensaje de información - CORRECCIÓN AQUÍ
+    
+            # Crear mensaje de información
             info = f"Tabla: {tabla}\n"
             info += f"Total de filas: {total_filas}\n\n"
             info += "Columnas:\n"
             info += "-" * 50 + "\n"
-        
+    
             for col in columnas:
                 pk = "(PRIMARY KEY)" if col[5] else ""
                 not_null = "NOT NULL" if col[3] else ""
                 default = f"DEFAULT {col[4]}" if col[4] else ""
                 info += f"{col[1]}: {col[2]} {pk} {not_null} {default}\n"
             
-            QMessageBox.information(self, "Información de Tabla", info)
-        
+            # Diálogo personalizado con botón copiar
+            dialog = QDialog(self)
+            dialog.setWindowTitle("Información de Tabla")
+            dialog.setMinimumWidth(400)
+
+            layout = QVBoxLayout()
+
+            text_edit = QTextEdit()
+            text_edit.setReadOnly(True)
+            text_edit.setFont(QFont("Consolas", 10))
+            text_edit.setText(info)
+
+            btn_copiar = QPushButton("📋 Copiar")
+            btn_copiar.clicked.connect(lambda: self.copiar_texto_portapapeles(text_edit.toPlainText()))
+
+            btn_cerrar = QPushButton("OK")
+            btn_cerrar.clicked.connect(dialog.close)
+
+            btns_layout = QHBoxLayout()
+            btns_layout.addStretch()
+            btns_layout.addWidget(btn_copiar)
+            btns_layout.addWidget(btn_cerrar)
+
+            layout.addWidget(text_edit)
+            layout.addLayout(btns_layout)
+
+            dialog.setLayout(layout)
+            dialog.exec_()
+    
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Error al obtener información:\n{e}")
 
@@ -1169,58 +1145,51 @@ class DBManager(QMainWindow):
             self.status_bar.showMessage("Valor copiado al portapapeles", 2000)
 
     def ejecutar_consulta(self):
-        """Ejecuta la consulta SQL del editor"""
+        """Ejecuta la consulta SQL del editor y muestra mensaje de éxito o error"""
         consulta = self.query_editor.toPlainText().strip()
         if not consulta:
             QMessageBox.warning(self, "Consulta vacía", "Escribe una consulta SQL.")
             return
-            
+
         if not self.cursor:
             QMessageBox.warning(self, "Sin conexión", "Carga una base de datos primero.")
             return
-            
+
         try:
             self.progress_bar.setVisible(True)
             self.progress_bar.setRange(0, 0)  # Modo indeterminado
 
-            # Ejecutar consulta
             self.cursor.execute(consulta)
 
-            # Si es una consulta SELECT, mostrar resultados
             if consulta.upper().strip().startswith('SELECT'):
                 resultados = self.cursor.fetchall()
-
                 if resultados:
-                    # Obtener nombres de columnas
                     columnas = [description[0] for description in self.cursor.description]
-
-                    # Configurar tabla de resultados
                     self.results_table.setRowCount(len(resultados))
                     self.results_table.setColumnCount(len(columnas))
                     self.results_table.setHorizontalHeaderLabels(columnas)
-
-                    # Llenar datos
                     for i, fila in enumerate(resultados):
                         for j, valor in enumerate(fila):
                             item = QTableWidgetItem(str(valor) if valor is not None else "")
                             self.results_table.setItem(i, j, item)
-
                     self.results_table.resizeColumnsToContents()
                     self.status_bar.showMessage(f"Consulta ejecutada: {len(resultados)} filas")
+                    QMessageBox.information(self, "Éxito", f"Consulta SELECT ejecutada correctamente.\nFilas obtenidas: {len(resultados)}")
                 else:
                     self.results_table.setRowCount(0)
                     self.status_bar.showMessage("Consulta ejecutada: sin resultados")
+                    QMessageBox.information(self, "Éxito", "Consulta SELECT ejecutada correctamente.\nSin resultados.")
             else:
-                # Para INSERT, UPDATE, DELETE, etc.
                 self.conn.commit()
                 filas_afectadas = self.cursor.rowcount
                 self.results_table.setRowCount(0)
                 self.status_bar.showMessage(f"Consulta ejecutada: {filas_afectadas} filas afectadas")
-                
                 # Actualizar listas de tablas si fue DDL
                 if any(palabra in consulta.upper() for palabra in ['CREATE', 'DROP', 'ALTER']):
                     self.listar_tablas()
-                    
+                # Mensaje de éxito para comandos de modificación
+                QMessageBox.information(self, "Éxito", f"Comando ejecutado correctamente.\nFilas afectadas: {filas_afectadas}")
+
         except Exception as e:
             QMessageBox.critical(self, "Error en consulta", f"Error al ejecutar consulta:\n{e}")
             self.status_bar.showMessage("Error en consulta")
@@ -1380,6 +1349,61 @@ class DBManager(QMainWindow):
         
         self.refresh_timer.stop()
         event.accept()
+
+    def create_query_tab(self):
+        """Crea la pestaña de consultas SQL"""
+        tab = QWidget()
+        layout = QVBoxLayout(tab)
+        
+        query_group = QGroupBox("Editor de Consultas SQL")
+        query_layout = QVBoxLayout(query_group)
+        
+        self.query_editor = QTextEdit()
+        self.query_editor.setPlaceholderText("Escribe tu consulta SQL aquí...")
+        self.query_editor.setFont(QFont("Consolas", 10))
+        self.query_editor.setMinimumHeight(150)
+        
+        query_controls = QHBoxLayout()
+        btn_ejecutar = QPushButton("▶ Ejecutar")
+        btn_ejecutar.setProperty("class", "success")
+        btn_ejecutar.clicked.connect(self.ejecutar_consulta)
+        
+        btn_limpiar = QPushButton("🧹 Limpiar")
+        btn_limpiar.clicked.connect(self.query_editor.clear)
+        
+        btn_guardar_consulta = QPushButton("💾 Guardar")
+        btn_guardar_consulta.clicked.connect(self.guardar_consulta)
+
+        btn_copiar = QPushButton("📋 Copiar")
+        btn_copiar.clicked.connect(lambda: self.copiar_texto_portapapeles(self.query_editor.toPlainText()))
+
+        query_controls.addWidget(btn_ejecutar)
+        query_controls.addWidget(btn_limpiar)
+        query_controls.addWidget(btn_guardar_consulta)
+        query_controls.addWidget(btn_copiar)
+        query_controls.addStretch()
+        
+        query_layout.addWidget(self.query_editor)
+        query_layout.addLayout(query_controls)
+        
+        results_group = QGroupBox("Resultados")
+        results_layout = QVBoxLayout(results_group)
+        
+        self.results_table = QTableWidget()
+        self.results_table.setAlternatingRowColors(True)
+        self.results_table.horizontalHeader().setStretchLastSection(True)
+        
+        results_layout.addWidget(self.results_table)
+        
+        splitter = QSplitter(Qt.Vertical)
+        splitter.addWidget(query_group)
+        splitter.addWidget(results_group)
+        splitter.setStretchFactor(0, 1)
+        splitter.setStretchFactor(1, 2)
+        
+        layout.addWidget(splitter)
+        
+        return tab
 
 def main():
     app = QApplication(sys.argv)
