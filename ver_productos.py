@@ -206,6 +206,8 @@ class ProductManagementWindow(QMainWindow):
         """)
         self._setup_ui()
         self._load_products()
+        self.table.setMouseTracking(True)  # Permite detectar el puntero sobre la celda
+        self.table.cellEntered.connect(self._show_cell_tooltip)
 
     def _setup_ui(self):
         main_widget = QWidget()
@@ -375,9 +377,10 @@ class ProductManagementWindow(QMainWindow):
 
         # Tabla de productos
         self.table = QTableWidget()
-        self.table.setColumnCount(9)  # 8 datos + 1 columna de acciones
+        self.table.setColumnCount(12)
         self.table.setHorizontalHeaderLabels([
-            "codigo", "nombre", "imagen", "precio", "cajas", "unidades", "stock", "fecha_venc", "id_empleado", "acciones"
+            "Código", "Nombre", "Imagen", "Precio", "Cajas", "Paquetes", "Paquetes Totales",
+            "Unidades por Paquete", "Unidades Totales", "Fecha Venc.", "Empleado", "Acciones"
         ])
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.table.setSelectionBehavior(QTableWidget.SelectRows)
@@ -393,64 +396,61 @@ class ProductManagementWindow(QMainWindow):
             if item:
                 selected_id = item.text()
 
-        products = DatabaseManager.get_products()
+        products = []
+        try:
+            conn = sqlite3.connect(DatabaseManager.get_db_path())
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT id_producto, codigo, imagen, nombre, precio, fecha_venc, id_empleado,
+                       cajas, paquetes, unidades, unidades_por_paquete, paquetes_por_caja
+                FROM productos
+            """)
+            products = cursor.fetchall()
+            conn.close()
+        except sqlite3.Error as e:
+            QMessageBox.critical(self, "Error", f"No se pudo obtener los datos: {e}")
+
         self.table.setRowCount(0)
         for row_num, product in enumerate(products):
             self.table.insertRow(row_num)
-            (id_producto, codigo, imagen, nombre, precio, stock, fecha_venc, id_empleado, cajas, unidades) = product
+            (id_producto, codigo, imagen, nombre, precio, fecha_venc, id_empleado,
+             cajas, paquetes, unidades_sueltas, unidades_por_paquete, paquetes_por_caja) = product
 
-            # Calcular el stock real
-            if cajas and cajas > 0 and unidades and unidades > 0:
-                stock_real = cajas * unidades
-                cajas_str = str(cajas)
-                unidades_str = str(unidades)
-            else:
-                stock_real = unidades if unidades else stock
-                cajas_str = ""  # No mostrar cajas si no hay
-                unidades_str = str(unidades if unidades else stock_real)
+            # Paquetes totales = cajas * paquetes_por_caja
+            paquetes_totales = (cajas if cajas else 0) * (paquetes_por_caja if paquetes_por_caja else 0)
+            # Unidades totales = paquetes_totales * unidades_por_paquete + unidades sueltas
+            unidades_totales = paquetes_totales * (unidades_por_paquete if unidades_por_paquete else 0) + (unidades_sueltas if unidades_sueltas else 0)
 
-            # codigo
+            # Código
             self.table.setItem(row_num, 0, QTableWidgetItem(str(codigo)))
-            # nombre
+            # Nombre
             self.table.setItem(row_num, 1, QTableWidgetItem(str(nombre)))
-            # imagen
-            item_img = QTableWidgetItem()
-            ruta_img = imagen
-            if ruta_img and not os.path.isabs(ruta_img):
-                ruta_img = os.path.join(os.path.dirname(__file__), ruta_img)
-            if ruta_img and os.path.exists(ruta_img):
-                pixmap = QPixmap(ruta_img)
-                if not pixmap.isNull():
-                    icon = QIcon(pixmap.scaled(60, 60, Qt.KeepAspectRatio, Qt.SmoothTransformation))
-                    item_img.setIcon(icon)
-                    item_img.setText(imagen)
-                else:
-                    item_img.setText(imagen)
-            else:
-                item_img.setText(imagen if imagen else "")
-            self.table.setItem(row_num, 2, item_img)
-            # precio
-            self.table.setItem(row_num, 3, QTableWidgetItem(str(precio)))
-            # cajas (solo si hay cajas)
-            self.table.setItem(row_num, 4, QTableWidgetItem(cajas_str))
-            # unidades (siempre)
-            self.table.setItem(row_num, 5, QTableWidgetItem(unidades_str))
-            # stock (total de unidades)
-            self.table.setItem(row_num, 6, QTableWidgetItem(str(stock_real)))
-            # fecha_venc
+            # Imagen
+            self.table.setItem(row_num, 2, QTableWidgetItem(str(imagen)))
+            # Precio
+            self.table.setItem(row_num, 3, QTableWidgetItem(f"{precio:.2f}"))
+            # Cajas
+            self.table.setItem(row_num, 4, QTableWidgetItem(str(cajas)))
+            # Paquetes (sueltos)
+            self.table.setItem(row_num, 5, QTableWidgetItem(str(paquetes)))
+            # Paquetes totales (solo cajas * paquetes_por_caja)
+            self.table.setItem(row_num, 6, QTableWidgetItem(str(paquetes_totales)))
+            # Unidades por paquete
+            self.table.setItem(row_num, 7, QTableWidgetItem(str(unidades_por_paquete)))
+            # Unidades totales
+            self.table.setItem(row_num, 8, QTableWidgetItem(str(unidades_totales)))
+            # Fecha Venc.
+            fecha_str = ""
             if fecha_venc:
                 try:
-                    fecha = datetime.strptime(fecha_venc, "%Y-%m-%d")
+                    fecha = datetime.strptime(str(fecha_venc), "%Y-%m-%d")
                     fecha_str = fecha.strftime("%Y-%m-%d")
                 except Exception:
                     fecha_str = str(fecha_venc)
-            else:
-                fecha_str = ""
-            self.table.setItem(row_num, 7, QTableWidgetItem(fecha_str))
-            # id_empleado
-            self.table.setItem(row_num, 8, QTableWidgetItem(str(id_empleado)))
-
-            # columna de acciones
+            self.table.setItem(row_num, 9, QTableWidgetItem(fecha_str))
+            # Empleado
+            self.table.setItem(row_num, 10, QTableWidgetItem(str(id_empleado)))
+            # Acciones
             self._add_action_dropdown(row_num, id_producto)
 
         # Restaurar la selección si es posible
@@ -460,6 +460,26 @@ class ProductManagementWindow(QMainWindow):
                 if item and item.text() == selected_id:
                     self.table.selectRow(row)
                     break
+
+        total_paquetes = 0
+        for product in products:
+            cajas = product[7]
+            paquetes_por_caja = product[11]
+            paquetes_sueltos = product[8]
+            paquetes_totales = (cajas if cajas else 0) * (paquetes_por_caja if paquetes_por_caja else 0) + (paquetes_sueltos if paquetes_sueltos else 0)
+            total_paquetes += paquetes_totales
+
+        # Puedes mostrarlo en una StatsCard arriba de la tabla:
+        stats_card = StatsCard("Paquetes totales en inventario", total_paquetes, icon="📦", color="#4CAF50")
+        # Si ya tienes una tarjeta, actualízala; si no, agrégala al layout principal:
+        # main_layout.insertWidget(0, stats_card)
+
+        # Agrega una fila resumen al final
+        resumen_row = self.table.rowCount()
+        self.table.insertRow(resumen_row)
+        self.table.setSpan(resumen_row, 0, 1, 6)  # Unir las primeras 6 columnas
+        self.table.setItem(resumen_row, 0, QTableWidgetItem("TOTAL PAQUETES"))
+        self.table.setItem(resumen_row, 6, QTableWidgetItem(str(total_paquetes)))
 
     def _add_action_dropdown(self, row_num, product_id):
         from PyQt5.QtWidgets import QComboBox
@@ -582,20 +602,21 @@ class ProductManagementWindow(QMainWindow):
             QMessageBox.critical(self, "Error", f"No se pudo abrir menu.py: {e}")
 
     def _adjust_quantity(self, product_id):
-        """Permite ajustar la cantidad de cajas y unidades de un producto"""
+        """Permite ajustar la cantidad de cajas, paquetes y unidades por paquete de un producto.
+        Ahora registra los paquetes en productos_paquetes y las unidades en productos_unidades.
+        """
         from PyQt5.QtWidgets import QInputDialog
 
-        # Obtener datos actuales
         conn = sqlite3.connect(DatabaseManager.get_db_path())
         cursor = conn.cursor()
-        cursor.execute("SELECT cajas, unidades FROM productos WHERE id_producto = ?", (product_id,))
+        cursor.execute("SELECT cajas, paquetes, unidades_por_paquete FROM productos WHERE id_producto = ?", (product_id,))
         result = cursor.fetchone()
-        conn.close()
         if not result:
+            conn.close()
             QMessageBox.warning(self, "Error", "No se encontró el producto.")
             return
 
-        cajas_actual, unidades_actual = result
+        cajas_actual, paquetes_actual, unidades_por_paquete_actual = result
 
         # Solicitar nueva cantidad de cajas
         cajas, ok_cajas = QInputDialog.getInt(
@@ -604,34 +625,66 @@ class ProductManagementWindow(QMainWindow):
             value=cajas_actual, min=0
         )
         if not ok_cajas:
+            conn.close()
             return
 
-        # Solicitar nueva cantidad de unidades
-        unidades, ok_unidades = QInputDialog.getInt(
-            self, "Ajustar cantidad de unidades",
-            f"Cantidad actual de unidades por caja: {unidades_actual}\nIngrese nueva cantidad de unidades:",
-            value=unidades_actual, min=0
+        # Solicitar nueva cantidad de paquetes
+        paquetes, ok_paquetes = QInputDialog.getInt(
+            self, "Ajustar cantidad de paquetes",
+            f"Cantidad actual de paquetes: {paquetes_actual}\nIngrese nueva cantidad de paquetes:",
+            value=paquetes_actual, min=0
+        )
+        if not ok_paquetes:
+            conn.close()
+            return
+
+        # Solicitar nueva cantidad de unidades por paquete
+        unidades_por_paquete, ok_unidades = QInputDialog.getInt(
+            self, "Ajustar unidades por paquete",
+            f"Unidades actuales por paquete: {unidades_por_paquete_actual}\nIngrese nueva cantidad de unidades por paquete:",
+            value=unidades_por_paquete_actual, min=1
         )
         if not ok_unidades:
+            conn.close()
             return
 
-        # Actualizar en la base de datos
         try:
-            conn = sqlite3.connect(DatabaseManager.get_db_path())
-            cursor = conn.cursor()
+            # Actualizar en la tabla productos
             cursor.execute(
-                "UPDATE productos SET cajas = ?, unidades = ? WHERE id_producto = ?",
-                (cajas, unidades, product_id)
+                "UPDATE productos SET cajas = ?, paquetes = ?, unidades_por_paquete = ? WHERE id_producto = ?",
+                (cajas, paquetes, unidades_por_paquete, product_id)
             )
+
+            # Registrar paquetes en productos_paquetes
+            cursor.execute("SELECT nombre, codigo, precio, fecha_venc, id_empleado FROM productos WHERE id_producto = ?", (product_id,))
+            prod_data = cursor.fetchone()
+            if prod_data:
+                nombre, codigo, precio, fecha_venc, id_empleado = prod_data
+                cursor.execute("""
+                    INSERT OR REPLACE INTO productos_paquetes (id_producto, codigo, nombre, precio_paquete, fecha_venc, id_empleado, paquetes_disponibles, unidades_por_paquete)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    product_id, codigo, nombre, precio, fecha_venc, id_empleado, paquetes, unidades_por_paquete
+                ))
+
+            # Registrar unidades en productos_unidades
+            cursor.execute("""
+                INSERT OR REPLACE INTO productos_unidades (id_producto, codigo, nombre, precio_unitario, fecha_venc, id_empleado, unidades)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            """, (
+                product_id, codigo, nombre, precio, fecha_venc, id_empleado, paquetes * unidades_por_paquete
+            ))
+
             conn.commit()
-            conn.close()
-            QMessageBox.information(self, "Cantidad ajustada", "Las cantidades fueron actualizadas correctamente.")
+            QMessageBox.information(self, "Cantidad ajustada", "Las cantidades fueron actualizadas correctamente y registradas en las tablas de paquetes y unidades.")
             self._load_products()
         except Exception as e:
             QMessageBox.critical(self, "Error", f"No se pudo ajustar la cantidad:\n{e}")
+        finally:
+            conn.close()
 
     def _reassign_price(self, product_id):
-        """Permite reasignar el precio de un producto"""
+        """Permite reasignar el precio de un producto, acepta punto o coma como separador decimal"""
         from PyQt5.QtWidgets import QInputDialog
 
         # Obtener precio actual
@@ -646,13 +699,20 @@ class ProductManagementWindow(QMainWindow):
 
         precio_actual = result[0]
 
-        # Solicitar nuevo precio
-        precio, ok = QInputDialog.getDouble(
+        # Solicitar nuevo precio como texto para permitir punto o coma
+        precio_texto, ok = QInputDialog.getText(
             self, "Reasignar precio",
-            f"Precio actual: {precio_actual}\nIngrese nuevo precio:",
-            value=precio_actual, min=0, decimals=2
+            f"Precio actual: {precio_actual}\nIngrese nuevo precio (puede usar punto o coma):",
+            text=str(precio_actual)
         )
-        if not ok:
+        if not ok or not precio_texto.strip():
+            return
+
+        # Reemplaza coma por punto y convierte a float
+        try:
+            precio = float(precio_texto.replace(",", "."))
+        except ValueError:
+            QMessageBox.warning(self, "Error", "Ingrese un precio válido (ejemplo: 12.50 o 12,50).")
             return
 
         # Actualizar en la base de datos
@@ -669,6 +729,13 @@ class ProductManagementWindow(QMainWindow):
             self._load_products()
         except Exception as e:
             QMessageBox.critical(self, "Error", f"No se pudo reasignar el precio:\n{e}")
+
+    def _show_cell_tooltip(self, row, column):
+        item = self.table.item(row, column)
+        if item:
+            self.table.setToolTip(item.text())
+        else:
+            self.table.setToolTip("")
 
 # Configura el locale para fechas en español
 try:

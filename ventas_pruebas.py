@@ -5,7 +5,7 @@ import subprocess
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QLabel, QLineEdit, QPushButton, QTableWidget, QTableWidgetItem, 
-    QMessageBox, QSpinBox, QHeaderView, QComboBox, QListWidget, QListWidgetItem
+    QMessageBox, QSpinBox, QHeaderView, QComboBox
 )
 from PyQt5.QtCore import Qt
 from datetime import datetime, timedelta
@@ -81,6 +81,12 @@ class VentasWindow(QMainWindow):
         self.tabla.setHorizontalHeaderLabels([
             "Nombre", "Código", "Precio", "Cajas", "Unidades/Caja", "Stock Total"
         ])
+        self.tabla.setColumnWidth(0, 200)  # Nombre
+        self.tabla.setColumnWidth(1, 100)  # Código
+        self.tabla.setColumnWidth(2, 90)   # Precio
+        self.tabla.setColumnWidth(3, 70)   # Cajas
+        self.tabla.setColumnWidth(4, 110)  # Unidades/Caja
+        self.tabla.setColumnWidth(5, 110)  # Stock Total
         self.tabla.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.tabla.setSelectionBehavior(QTableWidget.SelectRows)
         self.tabla.setEditTriggers(QTableWidget.NoEditTriggers)
@@ -126,19 +132,26 @@ class VentasWindow(QMainWindow):
         total_layout.addWidget(btn_vender)
         main_layout.addLayout(total_layout)
 
+        # Panel de pago y cambio
+        pago_layout = QHBoxLayout()
+        pago_label = QLabel("Pago del cliente (Bs.):")
+        pago_layout.addWidget(pago_label)
+        self.input_pago = QLineEdit()
+        self.input_pago.setPlaceholderText("Ejemplo: 50")
+        pago_layout.addWidget(self.input_pago)
+        btn_calcular_cambio = QPushButton("Calcular Cambio")
+        btn_calcular_cambio.clicked.connect(self.calcular_cambio)
+        pago_layout.addWidget(btn_calcular_cambio)
+        self.label_cambio = QLabel("Cambio: 0.00 Bs.")
+        self.label_cambio.setStyleSheet("font-size: 16px; font-weight: bold; color: #2d3436;")
+        pago_layout.addWidget(self.label_cambio)
+        main_layout.addLayout(pago_layout)
+
         # Botón de menú principal
         btn_menu = QPushButton("Menú Principal")
         btn_menu.setStyleSheet("background-color: #FFD700; font-size: 14px;")
         btn_menu.clicked.connect(self.ir_menu_principal)
         main_layout.addWidget(btn_menu, alignment=Qt.AlignLeft)
-
-        # Botón y formulario de devoluciones
-        devol_layout = QHBoxLayout()
-        btn_devolucion = QPushButton("Registrar Devolución")
-        btn_devolucion.setStyleSheet("background-color: #e0e7ef; font-weight: bold;")
-        btn_devolucion.clicked.connect(self.mostrar_formulario_devolucion)
-        devol_layout.addWidget(btn_devolucion)
-        main_layout.addLayout(devol_layout)
 
         self.tabla.selectionModel().selectionChanged.connect(self.actualizar_spinbox)
         self.cargar_todos_productos()
@@ -347,151 +360,37 @@ class VentasWindow(QMainWindow):
         QMessageBox.information(self, "Venta procesada", "Venta realizada correctamente.")
         self.cargar_todos_productos()
 
-    def mostrar_formulario_devolucion(self):
-        from PyQt5.QtWidgets import (
-            QDialog, QFormLayout, QLineEdit, QComboBox, QTextEdit, QPushButton, QSpinBox, QListWidget, QListWidgetItem
-        )
-
-        dialog = QDialog(self)
-        dialog.setWindowTitle("Registrar Devolución")
-        dialog.setMinimumWidth(400)
-        form = QFormLayout(dialog)
-
-        input_codigo = QLineEdit()
-        input_codigo.setPlaceholderText("Código del producto")
-        form.addRow("Código:", input_codigo)
-
-        input_nombre = QLineEdit()
-        input_nombre.setPlaceholderText("Nombre del producto")
-        form.addRow("Nombre producto:", input_nombre)
-
-        # Lista para autocompletar
-        lista_productos = QListWidget()
-        lista_productos.setMaximumHeight(80)
-        form.addRow("Coincidencias:", lista_productos)
-
-        def buscar_productos():
-            codigo = input_codigo.text().strip()
-            nombre = input_nombre.text().strip()
-            query = "SELECT id_producto, nombre, codigo FROM productos WHERE 1=1"
-            params = []
-            if codigo:
-                query += " AND codigo LIKE ?"
-                params.append(f"%{codigo}%")
-            if nombre:
-                query += " AND nombre LIKE ?"
-                params.append(f"%{nombre}%")
-            self.cursor.execute(query, params)
-            productos = self.cursor.fetchall()
-            lista_productos.clear()
-            for id_producto, nombre_p, codigo_p in productos:
-                item = QListWidgetItem(f"{nombre_p} (Código: {codigo_p})")
-                item.setData(Qt.UserRole, (id_producto, nombre_p, codigo_p))
-                lista_productos.addItem(item)
-
-        input_codigo.textChanged.connect(buscar_productos)
-        input_nombre.textChanged.connect(buscar_productos)
-
-        def autocompletar_producto(item):
-            id_producto, nombre_p, codigo_p = item.data(Qt.UserRole)
-            input_codigo.setText(codigo_p)
-            input_nombre.setText(nombre_p)
-            lista_productos.clear()
-
-        lista_productos.itemClicked.connect(autocompletar_producto)
-
-        spin_cantidad = QSpinBox()
-        spin_cantidad.setMinimum(1)
-        spin_cantidad.setMaximum(1000)
-        form.addRow("Cantidad a devolver:", spin_cantidad)
-
-        input_motivo = QTextEdit()
-        input_motivo.setPlaceholderText("Motivo de la devolución")
-        input_motivo.setFixedHeight(40)
-        form.addRow("Motivo:", input_motivo)
-
-        combo_tipo_devolucion = QComboBox()
-        combo_tipo_devolucion.addItems(["Devolución simple", "Devolución por defecto"])
-        form.addRow("Tipo de devolución:", combo_tipo_devolucion)
-
-        combo_empleado = QComboBox()
-        self.cursor.execute("SELECT id_empleado, nombre FROM empleado")
-        for id_empleado, nombre in self.cursor.fetchall():
-            combo_empleado.addItem(f"{nombre} (ID:{id_empleado})", id_empleado)
-        form.addRow("Empleado:", combo_empleado)
-
-        btn_registrar = QPushButton("Registrar")
-        btn_registrar.setStyleSheet("background-color: #FFD700; font-weight: bold;")
-        form.addRow(btn_registrar)
-
-        def buscar_id_producto(codigo, nombre):
-            if codigo:
-                self.cursor.execute("SELECT id_producto FROM productos WHERE codigo = ?", (codigo,))
-                result = self.cursor.fetchone()
-                if result:
-                    return result[0]
-            if nombre:
-                self.cursor.execute("SELECT id_producto FROM productos WHERE nombre LIKE ?", (f"%{nombre}%",))
-                result = self.cursor.fetchone()
-                if result:
-                    return result[0]
-            return None
-
-        def registrar_devolucion():
-            codigo = input_codigo.text().strip()
-            nombre = input_nombre.text().strip()
-            cantidad = spin_cantidad.value()
-            motivo = input_motivo.toPlainText().strip()
-            tipo_devolucion = combo_tipo_devolucion.currentText()
-            id_empleado = combo_empleado.currentData()
-            fecha = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-            if not (codigo or nombre) or not motivo or not id_empleado:
-                QMessageBox.warning(dialog, "Campos requeridos", "Complete código o nombre, motivo y empleado.")
-                return
-
-            id_producto = buscar_id_producto(codigo, nombre)
-            if not id_producto:
-                QMessageBox.warning(dialog, "Producto no encontrado", "No existe un producto con ese código o nombre.")
-                return
-
-            try:
-                # Registrar la devolución en la tabla devoluciones
-                self.cursor.execute(
-                    "INSERT INTO devoluciones (id_producto, cantidad, motivo, fecha_devolucion, id_empleado) VALUES (?, ?, ?, ?, ?)",
-                    (id_producto, cantidad, motivo, fecha, id_empleado)
-                )
-                self.conexion.commit()
-
-                # Si es devolución simple, sumar la cantidad al stock del producto (y actualizar cajas/unidades si corresponde)
-                if tipo_devolucion == "Devolución simple":
-                    self.cursor.execute("SELECT cajas, unidades, stock FROM productos WHERE id_producto = ?", (id_producto,))
-                    cajas_actual, unidades_actual, stock_actual = self.cursor.fetchone()
-                    nuevo_stock = stock_actual + cantidad
-                    if cajas_actual and unidades_actual and cajas_actual > 0 and unidades_actual > 0:
-                        nuevas_cajas = nuevo_stock // unidades_actual
-                        nuevas_unidades = nuevo_stock % unidades_actual
-                        self.cursor.execute(
-                            "UPDATE productos SET cajas = ?, unidades = ?, stock = ? WHERE id_producto = ?",
-                            (nuevas_cajas, nuevas_unidades, nuevo_stock, id_producto)
-                        )
-                    else:
-                        self.cursor.execute(
-                            "UPDATE productos SET stock = ? WHERE id_producto = ?",
-                            (nuevo_stock, id_producto)
-                        )
-                    self.conexion.commit()
-                    QMessageBox.information(dialog, "Devolución registrada", f"La devolución se registró y se reincorporaron {cantidad} producto(s) al stock.")
-                else:
-                    QMessageBox.information(dialog, "Devolución registrada", "La devolución se registró como defectuosa y no se reincorporó al stock.")
-
-                dialog.accept()
-                self.cargar_todos_productos()
-            except Exception as e:
-                QMessageBox.critical(dialog, "Error", f"No se pudo registrar la devolución:\n{e}")
-
-        btn_registrar.clicked.connect(registrar_devolucion)
-        dialog.exec_()
+    def calcular_cambio(self):
+        """Calcula el cambio y muestra la cantidad y billetes sugeridos."""
+        try:
+            pago = float(self.input_pago.text())
+        except Exception:
+            QMessageBox.warning(self, "Pago inválido", "Ingrese un monto válido.")
+            return
+        total = 0.0
+        try:
+            total = float(self.label_total.text().replace("Total: ", "").replace("Bs.", "").replace("$", "").strip())
+        except Exception:
+            pass
+        if pago < total:
+            QMessageBox.warning(self, "Pago insuficiente", "El pago es menor al total de la venta.")
+            return
+        cambio = round(pago - total, 2)
+        billetes = [200, 100, 50, 20, 10]
+        desglose = []
+        restante = cambio
+        for b in billetes:
+            cantidad = int(restante // b)
+            if cantidad > 0:
+                desglose.append(f"{cantidad} x {b} Bs.")
+                restante -= cantidad * b
+        restante = round(restante, 2)
+        mensaje = f"Cambio: {cambio:.2f} Bs."
+        if desglose:
+            mensaje += " | Billetes: " + ", ".join(desglose)
+        if restante > 0:
+            mensaje += f" | Resto: {restante:.2f} Bs. (entregar en monedas)"
+        self.label_cambio.setText(mensaje)
 
     def abrir_script(self, script):
         try:
@@ -514,6 +413,39 @@ class VentasWindow(QMainWindow):
         except Exception as e:
             QMessageBox.critical(self, "Error", f"No se pudo abrir menu.py: {e}")
 
+    def vender_unidad(self, producto_id):
+        # Obtener datos actuales
+        self.cursor.execute("SELECT cajas, paquetes, unidades, unidades_por_paquete, paquetes_por_caja FROM productos WHERE id_producto = ?", (producto_id,))
+        result = self.cursor.fetchone()
+        if not result:
+            QMessageBox.warning(self, "Error", "Producto no encontrado.")
+            return
+
+        cajas, paquetes, unidades, unidades_por_paquete, paquetes_por_caja = [x if x is not None else 0 for x in result]
+
+        # 1. Si hay unidades sueltas
+        if unidades > 0:
+            unidades -= 1
+        # 2. Si no hay unidades sueltas pero hay paquetes
+        elif paquetes > 0:
+            paquetes -= 1
+            unidades = unidades_por_paquete - 1  # Abrir paquete y vender una unidad
+        # 3. Si no hay paquetes pero hay cajas
+        elif cajas > 0:
+            cajas -= 1
+            paquetes = paquetes_por_caja - 1
+            unidades = unidades_por_paquete - 1  # Abrir caja, abrir paquete y vender una unidad
+        else:
+            QMessageBox.warning(self, "Sin stock", "No hay unidades, paquetes ni cajas disponibles.")
+            return
+
+        # Actualizar la base de datos
+        self.cursor.execute(
+            "UPDATE productos SET cajas = ?, paquetes = ?, unidades = ? WHERE id_producto = ?",
+            (cajas, paquetes, unidades, producto_id)
+        )
+        self.conexion.commit()
+        
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     ventana = VentasWindow()

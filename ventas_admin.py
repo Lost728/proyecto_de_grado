@@ -81,6 +81,12 @@ class VentasWindow(QMainWindow):
         self.tabla.setHorizontalHeaderLabels([
             "Nombre", "Código", "Precio", "Cajas", "Unidades/Caja", "Stock Total"
         ])
+        self.tabla.setColumnWidth(0, 200)  # Nombre
+        self.tabla.setColumnWidth(1, 100)  # Código
+        self.tabla.setColumnWidth(2, 90)   # Precio
+        self.tabla.setColumnWidth(3, 70)   # Cajas
+        self.tabla.setColumnWidth(4, 110)  # Unidades/Caja
+        self.tabla.setColumnWidth(5, 110)  # Stock Total
         self.tabla.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.tabla.setSelectionBehavior(QTableWidget.SelectRows)
         self.tabla.setEditTriggers(QTableWidget.NoEditTriggers)
@@ -125,6 +131,21 @@ class VentasWindow(QMainWindow):
         btn_vender.clicked.connect(self.vender_todo)
         total_layout.addWidget(btn_vender)
         main_layout.addLayout(total_layout)
+
+        # Panel de pago y cambio
+        pago_layout = QHBoxLayout()
+        pago_label = QLabel("Pago del cliente (Bs.):")
+        pago_layout.addWidget(pago_label)
+        self.input_pago = QLineEdit()
+        self.input_pago.setPlaceholderText("Ejemplo: 50")
+        pago_layout.addWidget(self.input_pago)
+        btn_calcular_cambio = QPushButton("Calcular Cambio")
+        btn_calcular_cambio.clicked.connect(self.calcular_cambio)
+        pago_layout.addWidget(btn_calcular_cambio)
+        self.label_cambio = QLabel("Cambio: 0.00 Bs.")
+        self.label_cambio.setStyleSheet("font-size: 16px; font-weight: bold; color: #2d3436;")
+        pago_layout.addWidget(self.label_cambio)
+        main_layout.addLayout(pago_layout)
 
         # Botón de menú principal
         btn_menu = QPushButton("Menú Principal")
@@ -338,6 +359,38 @@ class VentasWindow(QMainWindow):
         self.label_total.setText("Total: 0.00 Bs.")
         QMessageBox.information(self, "Venta procesada", "Venta realizada correctamente.")
         self.cargar_todos_productos()
+
+    def calcular_cambio(self):
+        """Calcula el cambio y muestra la cantidad y billetes sugeridos."""
+        try:
+            pago = float(self.input_pago.text())
+        except Exception:
+            QMessageBox.warning(self, "Pago inválido", "Ingrese un monto válido.")
+            return
+        total = 0.0
+        try:
+            total = float(self.label_total.text().replace("Total: ", "").replace("Bs.", "").replace("$", "").strip())
+        except Exception:
+            pass
+        if pago < total:
+            QMessageBox.warning(self, "Pago insuficiente", "El pago es menor al total de la venta.")
+            return
+        cambio = round(pago - total, 2)
+        billetes = [200, 100, 50, 20, 10]
+        desglose = []
+        restante = cambio
+        for b in billetes:
+            cantidad = int(restante // b)
+            if cantidad > 0:
+                desglose.append(f"{cantidad} x {b} Bs.")
+                restante -= cantidad * b
+        restante = round(restante, 2)
+        mensaje = f"Cambio: {cambio:.2f} Bs."
+        if desglose:
+            mensaje += " | Billetes: " + ", ".join(desglose)
+        if restante > 0:
+            mensaje += f" | Resto: {restante:.2f} Bs. (entregar en monedas)"
+        self.label_cambio.setText(mensaje)
 
     def abrir_script(self, script):
         try:

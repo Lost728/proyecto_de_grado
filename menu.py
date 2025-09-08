@@ -41,6 +41,7 @@ class MenuPrincipal(QMainWindow):
 
         # Lista de botones y scripts
         botones = [
+            ("Realizar ventas", "ventas_admin.py"),
             ("Ver Productos", "ver_productos.py"),
             ("Insertar Producto", "insertar_producto.py"),
             ("Ventas", "ventas_admin.py"),
