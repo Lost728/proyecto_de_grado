@@ -429,7 +429,7 @@ class ProductManagementWindow(QMainWindow):
                     unidades_por_paquete_db = result[0]
                 conn.close()
             except Exception:
-                unidades_por_paquete_db = unidades_por_paquete  # Si falla, usa el valor de productos
+                unidades_por_paquete_db = unidades_por_paquete
 
             if unidades_por_paquete_db is None:
                 unidades_por_paquete_db = unidades_por_paquete
@@ -443,7 +443,7 @@ class ProductManagementWindow(QMainWindow):
                 unidades_totales = paquetes_totales * (unidades_por_paquete_db if unidades_por_paquete_db else 0) + (unidades_sueltas if unidades_sueltas else 0)
             else:
                 paquetes_totales = 0
-                unidades_totales = unidades_sueltas if unidades_sueltas else 0
+                unidades_totales = unidades_sueltas if unidades_sueltas else 0  # Solo productos sueltos
 
             # Código
             self.table.setItem(row_num, 0, QTableWidgetItem(str(codigo)))
@@ -463,6 +463,19 @@ class ProductManagementWindow(QMainWindow):
             self.table.setItem(row_num, 7, QTableWidgetItem(f"{unidades_por_paquete_db:,}".replace(",", ".")))
             # Unidades totales
             self.table.setItem(row_num, 8, QTableWidgetItem(f"{unidades_totales:,}".replace(",", ".")))
+
+            # Actualiza la columna unidades_totales en productos_unidades para este producto
+            try:
+                conn_update = sqlite3.connect(DatabaseManager.get_db_path())
+                cursor_update = conn_update.cursor()
+                cursor_update.execute(
+                    "UPDATE productos_unidades SET unidades_totales = ? WHERE id_producto = ?",
+                    (unidades_totales, id_producto)
+                )
+                conn_update.commit()
+                conn_update.close()
+            except Exception:
+                pass
             # Fecha Venc.
             fecha_str = ""
             if fecha_venc:
@@ -632,22 +645,19 @@ class ProductManagementWindow(QMainWindow):
             QMessageBox.critical(self, "Error", f"No se pudo abrir menu.py: {e}")
 
     def _adjust_quantity(self, product_id):
-        """Permite ajustar la cantidad de cajas, paquetes, unidades por paquete y unidades sueltas de un producto.
-        Ahora registra los paquetes en productos_paquetes, las unidades por paquete en productos_unidades,
-        y las unidades sueltas en la columna 'unidades' de la tabla productos.
-        """
+        """Permite ajustar la cantidad y guarda el total de unidades correctamente en productos_unidades.unidades_totales."""
         from PyQt5.QtWidgets import QInputDialog
 
         conn = sqlite3.connect(DatabaseManager.get_db_path())
         cursor = conn.cursor()
-        cursor.execute("SELECT cajas, paquetes, unidades_por_paquete, unidades FROM productos WHERE id_producto = ?", (product_id,))
+        cursor.execute("SELECT cajas, paquetes, unidades_por_paquete, unidades, paquetes_por_caja FROM productos WHERE id_producto = ?", (product_id,))
         result = cursor.fetchone()
         if not result:
             conn.close()
             QMessageBox.warning(self, "Error", "No se encontró el producto.")
             return
 
-        cajas_actual, paquetes_actual, unidades_por_paquete_actual, unidades_sueltas_actual = result
+        cajas_actual, paquetes_actual, unidades_por_paquete_actual, unidades_sueltas_actual, paquetes_por_caja_actual = result
 
         # Solicitar nueva cantidad de cajas
         cajas, ok_cajas = QInputDialog.getInt(
@@ -689,11 +699,21 @@ class ProductManagementWindow(QMainWindow):
             conn.close()
             return
 
+        # Solicitar nueva cantidad de paquetes por caja
+        paquetes_por_caja, ok_paquetes_por_caja = QInputDialog.getInt(
+            self, "Ajustar paquetes por caja",
+            f"Paquetes por caja actuales: {paquetes_por_caja_actual}\nIngrese nueva cantidad de paquetes por caja:",
+            value=paquetes_por_caja_actual, min=0
+        )
+        if not ok_paquetes_por_caja:
+            conn.close()
+            return
+
         try:
             # Actualizar en la tabla productos
             cursor.execute(
-                "UPDATE productos SET cajas = ?, paquetes = ?, unidades_por_paquete = ?, unidades = ? WHERE id_producto = ?",
-                (cajas, paquetes, unidades_por_paquete, unidades_sueltas, product_id)
+                "UPDATE productos SET cajas = ?, paquetes = ?, unidades_por_paquete = ?, unidades = ?, paquetes_por_caja = ? WHERE id_producto = ?",
+                (cajas, paquetes, unidades_por_paquete, unidades_sueltas, paquetes_por_caja, product_id)
             )
 
             # Registrar paquetes en productos_paquetes
@@ -708,16 +728,40 @@ class ProductManagementWindow(QMainWindow):
                     product_id, codigo, nombre, precio, fecha_venc, id_empleado, paquetes, unidades_por_paquete
                 ))
 
-            # Registrar unidades por paquete en productos_unidades
+            # Calcular el total de unidades tal cual lo muestra la interfaz
+            unidades_totales = (
+                (cajas if cajas else 0) * (paquetes_por_caja if paquetes_por_caja else 0) * (unidades_por_paquete if unidades_por_paquete else 0)
+                + (paquetes if paquetes else 0) * (unidades_por_paquete if unidades_por_paquete else 0)
+                + (unidades_sueltas if unidades_sueltas else 0)
+            )
+
+            # Registrar unidades por paquete y unidades totales en productos_unidades
+            cursor.execute("SELECT 1 FROM productos_unidades WHERE id_producto = ?", (product_id,))
+            existe = cursor.fetchone()
+
+            if existe:
+                cursor.execute("""
+                    UPDATE productos_unidades
+                    SET unidades = ?, unidades_totales = ?
+                    WHERE id_producto = ?
+                """, (unidades_por_paquete, unidades_totales, product_id))
+            else:
+                cursor.execute("""
+                    INSERT INTO productos_unidades (id_producto, codigo, nombre, precio_unitario, fecha_venc, id_empleado, unidades, unidades_totales)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    product_id, codigo, nombre, precio, fecha_venc, id_empleado, unidades_por_paquete, unidades_totales
+                ))
+
+            # Actualizar solo unidades_totales en productos_unidades
             cursor.execute("""
-                INSERT OR REPLACE INTO productos_unidades (id_producto, codigo, nombre, precio_unitario, fecha_venc, id_empleado, unidades)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-            """, (
-                product_id, codigo, nombre, precio, fecha_venc, id_empleado, unidades_por_paquete
-            ))
+                UPDATE productos_unidades
+                SET unidades_totales = ?
+                WHERE id_producto = ?
+            """, (unidades_totales, product_id))
 
             conn.commit()
-            QMessageBox.information(self, "Cantidad ajustada", "Las cantidades fueron actualizadas correctamente y registradas en las tablas de paquetes, unidades por paquete y unidades sueltas.")
+            QMessageBox.information(self, "Cantidad ajustada", "Las cantidades fueron actualizadas correctamente y el total de unidades se guardó en la base de datos.")
             self._load_products()
         except Exception as e:
             QMessageBox.critical(self, "Error", f"No se pudo ajustar la cantidad:\n{e}")
