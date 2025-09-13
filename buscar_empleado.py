@@ -209,7 +209,7 @@ class VerEmpleados(QMainWindow):
             return
         
         try:
-            script_path = os.path.join(os.path.dirname(__file__), "modificar_empleado.py")
+            script_path = os.path.join(os.path.dirname(__file__), "editar_empleado.py")
             if not os.path.exists(script_path):
                 QMessageBox.critical(self, "Error", f"No se encontró el script de modificación: {script_path}")
                 return

@@ -79,14 +79,13 @@ class VentasWindow(QMainWindow):
         self.tabla = QTableWidget()
         self.tabla.setColumnCount(6)
         self.tabla.setHorizontalHeaderLabels([
-            "Nombre", "Código", "Precio", "Cajas", "Unidades/Caja", "Stock Total"
+            "Nombre", "Código", "Precio", "Cajas", "Unidades/Caja", "unidades Totales"
         ])
         self.tabla.setColumnWidth(0, 200)  # Nombre
         self.tabla.setColumnWidth(1, 100)  # Código
         self.tabla.setColumnWidth(2, 90)   # Precio
         self.tabla.setColumnWidth(3, 70)   # Cajas
         self.tabla.setColumnWidth(4, 110)  # Unidades/Caja
-        self.tabla.setColumnWidth(5, 110)  # Stock Total
         self.tabla.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.tabla.setSelectionBehavior(QTableWidget.SelectRows)
         self.tabla.setEditTriggers(QTableWidget.NoEditTriggers)
@@ -147,6 +146,23 @@ class VentasWindow(QMainWindow):
         pago_layout.addWidget(self.label_cambio)
         main_layout.addLayout(pago_layout)
 
+        # Panel de descuento
+        descuento_layout = QHBoxLayout()
+        descuento_label = QLabel("Descuento (%):")
+        descuento_layout.addWidget(descuento_label)
+        self.input_descuento = QLineEdit()
+        self.input_descuento.setPlaceholderText("Ejemplo: 10")
+        descuento_layout.addWidget(self.input_descuento)
+        btn_aplicar_descuento = QPushButton("Aplicar Descuento")
+        btn_aplicar_descuento.clicked.connect(self.aplicar_descuento)
+        descuento_layout.addWidget(btn_aplicar_descuento)
+        self.label_descuento = QLabel("Descuento aplicado: 0.00 Bs.")
+        self.label_descuento.setStyleSheet("font-size: 16px; color: #0984e3;")
+        descuento_layout.addWidget(self.label_descuento)
+        main_layout.addLayout(descuento_layout)
+
+        self.descuento_porcentaje = 0.0  # Variable para guardar el descuento aplicado
+
         # Botón de menú principal
         btn_menu = QPushButton("Menú Principal")
         btn_menu.setStyleSheet("background-color: #FFD700; font-size: 14px;")
@@ -157,46 +173,71 @@ class VentasWindow(QMainWindow):
         self.cargar_todos_productos()
 
     def cargar_todos_productos(self):
-        """Carga todos los productos con stock disponible en la tabla principal."""
-        self.cursor.execute("SELECT id_producto, nombre, codigo, precio, cajas, unidades, stock FROM productos WHERE stock > 0")
+        """Carga todos los productos de las tres tablas."""
+        sql = """
+            SELECT id_producto, nombre, codigo, precio_paquete as precio, 0 as cajas, paquetes_disponibles as paquetes, 0 as unidades, 'productos_paquetes' as origen
+            
+            FROM productos_paquetes WHERE paquetes_disponibles > 0
+            
+            UNION ALL
+            
+            SELECT id_producto, nombre, codigo, precio_unitario as precio, 0 as cajas, 0 as paquetes, unidades_totales as unidades, 'productos_unidades' as origen
+            
+            FROM productos_unidades WHERE unidades_totales > 0
+        """
+        self.cursor.execute(sql)
         resultados = self.cursor.fetchall()
         self.mostrar_productos(resultados)
         self.spin_cantidad.setMaximum(1)
 
     def buscar_producto(self):
-        """Busca productos por nombre o código según el texto ingresado en el buscador."""
+        """Busca productos por nombre o código en las tres tablas y muestra los datos relevantes."""
         texto = self.input_busqueda.text().strip()
         if not texto:
             self.cargar_todos_productos()
             return
-        sql = """
-            SELECT id_producto, nombre, codigo, precio, stock
-            FROM productos
-            WHERE stock > 0 AND (
-                nombre LIKE ? OR codigo LIKE ?
-            )
-        """
         like = f"%{texto}%"
-        self.cursor.execute(sql, (like, like))
+        sql = """
+            SELECT id_producto, nombre, codigo, precio, cajas, paquetes, unidades
+            FROM productos
+            WHERE (nombre LIKE ? OR codigo LIKE ?)
+            UNION ALL
+            SELECT id_producto, nombre, codigo, precio_paquete, 0 as cajas, paquetes_disponibles as paquetes, 0 as unidades
+            FROM productos_paquetes
+            WHERE (nombre LIKE ? OR codigo LIKE ?)
+            UNION ALL
+            SELECT id_producto, nombre, codigo, precio_unitario, 0 as cajas, 0 as paquetes, unidades_totales
+            FROM productos_unidades
+            WHERE (nombre LIKE ? OR codigo LIKE ?)
+        """
+        self.cursor.execute(sql, (like, like, like, like, like, like))
         resultados = self.cursor.fetchall()
         self.mostrar_productos(resultados)
 
     def mostrar_productos(self, resultados):
-        """Muestra los productos en la tabla principal con cajas, unidades y stock total."""
+        """Muestra los productos en la tabla principal con datos de las tres tablas."""
         self.tabla.setRowCount(0)
         for row_num, row_data in enumerate(resultados):
-            self.tabla.insertRow(row_num)
-            id_producto, nombre, codigo, precio, cajas, unidades, stock = row_data
-            # Calcula el stock total: si hay cajas y unidades, stock = cajas * unidades; si no, usa stock
-            if cajas and unidades and cajas > 0 and unidades > 0:
-                stock_total = cajas * unidades
+            id_producto, nombre, codigo, precio, cajas, paquetes, unidades, origen = row_data
+            # Determina el tipo de producto y el stock total
+            if cajas > 0 or paquetes > 0 or unidades > 0:
+                # Producto por caja/paquete/unidad
+                stock_total = (
+                    (cajas if cajas else 0) * (paquetes if paquetes else 1) * (unidades if unidades else 1)
+                    if cajas > 0 and paquetes > 0 and unidades > 0 else
+                    (paquetes if paquetes else 0) * (unidades if unidades else 1)
+                    if paquetes > 0 and unidades > 0 else
+                    unidades
+                )
             else:
-                stock_total = stock
+                stock_total = unidades  # Para productos_unidades
+
+            self.tabla.insertRow(row_num)
             self.tabla.setItem(row_num, 0, QTableWidgetItem(str(nombre)))
             self.tabla.setItem(row_num, 1, QTableWidgetItem(str(codigo)))
             self.tabla.setItem(row_num, 2, QTableWidgetItem(f"{precio:.2f} Bs."))
-            self.tabla.setItem(row_num, 3, QTableWidgetItem(str(cajas if cajas else "")))
-            self.tabla.setItem(row_num, 4, QTableWidgetItem(str(unidades if unidades else "")))
+            self.tabla.setItem(row_num, 3, QTableWidgetItem(str(cajas if cajas else "")))  # <-- Aquí se muestra cajas
+            self.tabla.setItem(row_num, 4, QTableWidgetItem(str(paquetes if paquetes else "")))
             self.tabla.setItem(row_num, 5, QTableWidgetItem(str(stock_total)))
         self.tabla.resizeColumnsToContents()
         self.spin_cantidad.setMaximum(1)
@@ -304,12 +345,31 @@ class VentasWindow(QMainWindow):
         self.label_total.setText("Total: 0.00 Bs.")
         QMessageBox.information(self, "Venta Cancelada", "La venta ha sido cancelada y el carrito vaciado.")
 
+    def aplicar_descuento(self):
+        """Aplica un descuento porcentual al total de la venta."""
+        try:
+            porcentaje = float(self.input_descuento.text())
+            if porcentaje < 0 or porcentaje > 100:
+                QMessageBox.warning(self, "Descuento inválido", "Ingrese un porcentaje entre 0 y 100.")
+                return
+            self.descuento_porcentaje = porcentaje
+            total = sum(item["cantidad_unidades"] * item["precio"] for item in self.carrito)
+            descuento = total * (porcentaje / 100)
+            total_con_descuento = total - descuento
+            self.label_descuento.setText(f"Descuento aplicado: {descuento:.2f} Bs.")
+            self.label_total.setText(f"Total: {total_con_descuento:.2f} Bs.")
+        except Exception:
+            QMessageBox.warning(self, "Error", "Ingrese un porcentaje válido.")
+
     def vender_todo(self):
         """Procesa la venta de todos los productos en el carrito, actualiza stock y registra el movimiento."""
         if not self.carrito:
             QMessageBox.warning(self, "Carrito Vacío", "Agregue productos al carrito antes de procesar la venta.")
             return
         fecha_mov = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        total = sum(item["cantidad_unidades"] * item["precio"] for item in self.carrito)
+        descuento = total * (self.descuento_porcentaje / 100)
+        total_con_descuento = total - descuento
         for item in self.carrito:
             # Obtener datos actuales del producto
             self.cursor.execute("SELECT cajas, unidades, stock FROM productos WHERE id_producto = ?", (item["id"],))
@@ -357,7 +417,8 @@ class VentasWindow(QMainWindow):
         self.carrito = []
         self.tabla_carrito.setRowCount(0)
         self.label_total.setText("Total: 0.00 Bs.")
-        QMessageBox.information(self, "Venta procesada", "Venta realizada correctamente.")
+        self.label_descuento.setText("Descuento aplicado: 0.00 Bs.")
+        QMessageBox.information(self, "Venta procesada", f"Venta realizada correctamente.\nTotal con descuento: {total_con_descuento:.2f} Bs.")
         self.cargar_todos_productos()
 
     def calcular_cambio(self):

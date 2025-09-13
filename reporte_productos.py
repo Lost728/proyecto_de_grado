@@ -65,8 +65,10 @@ class ReporteProductos(QWidget):
 
         # Tabla de Disponibles
         self.tabla_disp = QTableWidget()
-        self.tabla_disp.setColumnCount(7)
-        self.tabla_disp.setHorizontalHeaderLabels(["Cód.", "Imagen", "Nombre", "Precio", "Stock", "Estado", "Historial"])
+        self.tabla_disp.setColumnCount(8)
+        self.tabla_disp.setHorizontalHeaderLabels([
+            "Cód.", "Imagen", "Nombre", "Tipo", "Precio", "Stock", "Estado", "Historial"
+        ])
         self.tabla_disp.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.tabla_disp.setAlternatingRowColors(True)
         self.tabla_disp.setEditTriggers(QTableWidget.NoEditTriggers)
@@ -78,8 +80,10 @@ class ReporteProductos(QWidget):
 
         # Tabla de Eliminados
         self.tabla_eli = QTableWidget()
-        self.tabla_eli.setColumnCount(7)
-        self.tabla_eli.setHorizontalHeaderLabels(["Cód.", "Imagen", "Nombre", "Precio", "Stock", "Estado", "Historial"])
+        self.tabla_eli.setColumnCount(8)
+        self.tabla_eli.setHorizontalHeaderLabels([
+            "Cód.", "Imagen", "Nombre", "Tipo", "Precio", "Stock", "Estado", "Historial"
+        ])
         self.tabla_eli.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.tabla_eli.setAlternatingRowColors(True)
         self.tabla_eli.setEditTriggers(QTableWidget.NoEditTriggers)
@@ -98,6 +102,7 @@ class ReporteProductos(QWidget):
 
         self.buscar()
 
+        # Botón Menú Principal
         btn_menu = QPushButton("Menú Principal")
         btn_menu.setStyleSheet("background-color: #FFD700; font-size: 14px;")
         btn_menu.clicked.connect(self.ir_menu_principal)
@@ -123,20 +128,40 @@ class ReporteProductos(QWidget):
         self.tabla_disp.setRowCount(0)
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
+        # Consulta unificada de las tres tablas
         query = """
-            SELECT codigo, imagen, nombre, precio, stock
+            SELECT codigo, imagen, nombre, 'Caja/Paquete/Unidad' as tipo, precio,
+                (cajas * paquetes_por_caja * unidades_por_paquete + paquetes * unidades_por_paquete + unidades) as stock
             FROM productos
-            WHERE 1=1
+            WHERE (cajas > 0 OR paquetes > 0 OR unidades > 0)
+            {filtro_prod}
+            UNION ALL
+            SELECT codigo, '' as imagen, nombre, 'Paquete' as tipo, precio_paquete,
+                paquetes_disponibles as stock
+            FROM productos_paquetes
+            WHERE paquetes_disponibles > 0
+            {filtro_paq}
+            UNION ALL
+            SELECT codigo, '' as imagen, nombre, 'Unidad' as tipo, precio_unitario,
+                unidades_totales as stock
+            FROM productos_unidades
+            WHERE unidades_totales > 0
+            {filtro_uni}
+            ORDER BY nombre ASC
         """
+        filtro_prod = filtro_paq = filtro_uni = ""
         params = []
         if filtro:
-            query += " AND (nombre LIKE ? OR codigo LIKE ?)"
-            params += [f"%{filtro}%", f"%{filtro}%"]
-        query += " ORDER BY nombre ASC"
+            filtro_prod = "AND (nombre LIKE ? OR codigo LIKE ?)"
+            filtro_paq = "AND (nombre LIKE ? OR codigo LIKE ?)"
+            filtro_uni = "AND (nombre LIKE ? OR codigo LIKE ?)"
+
+            params += [f"%{filtro}%", f"%{filtro}%"] * 3
+        query = query.format(filtro_prod=filtro_prod, filtro_paq=filtro_paq, filtro_uni=filtro_uni)
         cursor.execute(query, params)
         productos = cursor.fetchall()
         conn.close()
-        for row_num, (codigo, imagen, nombre, precio, stock) in enumerate(productos):
+        for row_num, (codigo, imagen, nombre, tipo, precio, stock) in enumerate(productos):
             self.tabla_disp.insertRow(row_num)
             self.tabla_disp.setItem(row_num, 0, QTableWidgetItem(str(codigo)))
             # Imagen
@@ -148,8 +173,9 @@ class ReporteProductos(QWidget):
                 img_item.setText("[img]")
             self.tabla_disp.setItem(row_num, 1, img_item)
             self.tabla_disp.setItem(row_num, 2, QTableWidgetItem(nombre))
-            self.tabla_disp.setItem(row_num, 3, QTableWidgetItem(f"{precio:.2f}"))
-            self.tabla_disp.setItem(row_num, 4, QTableWidgetItem(str(stock)))
+            self.tabla_disp.setItem(row_num, 3, QTableWidgetItem(tipo))
+            self.tabla_disp.setItem(row_num, 4, QTableWidgetItem(f"{precio:.2f}"))
+            self.tabla_disp.setItem(row_num, 5, QTableWidgetItem(str(stock)))
             # Estado
             if stock > 0:
                 estado_item = QTableWidgetItem("🟢 Activo")
@@ -157,18 +183,19 @@ class ReporteProductos(QWidget):
             else:
                 estado_item = QTableWidgetItem("🔴 Baja")
                 estado_item.setForeground(Qt.red)
-            self.tabla_disp.setItem(row_num, 5, estado_item)
+            self.tabla_disp.setItem(row_num, 6, estado_item)
             # Botón historial
             btn_hist = QPushButton("Ver")
             btn_hist.clicked.connect(lambda _, cod=codigo: self.ver_historial(cod))
-            self.tabla_disp.setCellWidget(row_num, 6, btn_hist)
+            self.tabla_disp.setCellWidget(row_num, 7, btn_hist)
 
     def cargar_eliminados(self, filtro=""):
         self.tabla_eli.setRowCount(0)
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
+        # Solo productos eliminados, puedes adaptar si tienes productos_paquetes_eliminados y productos_unidades_eliminados
         query = """
-            SELECT codigo, imagen, nombre, precio, stock
+            SELECT codigo, imagen, nombre, 'Caja/Paquete/Unidad' as tipo, precio, stock
             FROM productos_eliminados
             WHERE 1=1
         """
@@ -180,10 +207,9 @@ class ReporteProductos(QWidget):
         cursor.execute(query, params)
         productos = cursor.fetchall()
         conn.close()
-        for row_num, (codigo, imagen, nombre, precio, stock) in enumerate(productos):
+        for row_num, (codigo, imagen, nombre, tipo, precio, stock) in enumerate(productos):
             self.tabla_eli.insertRow(row_num)
             self.tabla_eli.setItem(row_num, 0, QTableWidgetItem(str(codigo)))
-            # Imagen
             img_item = QTableWidgetItem()
             if imagen and os.path.exists(imagen):
                 pixmap = QPixmap(imagen).scaled(40, 40, Qt.KeepAspectRatio)
@@ -192,15 +218,15 @@ class ReporteProductos(QWidget):
                 img_item.setText("[img]")
             self.tabla_eli.setItem(row_num, 1, img_item)
             self.tabla_eli.setItem(row_num, 2, QTableWidgetItem(nombre))
-            self.tabla_eli.setItem(row_num, 3, QTableWidgetItem(f"{precio:.2f}"))
-            self.tabla_eli.setItem(row_num, 4, QTableWidgetItem(str(stock)))
+            self.tabla_eli.setItem(row_num, 3, QTableWidgetItem(tipo))
+            self.tabla_eli.setItem(row_num, 4, QTableWidgetItem(f"{precio:.2f}"))
+            self.tabla_eli.setItem(row_num, 5, QTableWidgetItem(str(stock)))
             estado_item = QTableWidgetItem("🔴 Baja")
             estado_item.setForeground(Qt.red)
-            self.tabla_eli.setItem(row_num, 5, estado_item)
-            # Botón historial
+            self.tabla_eli.setItem(row_num, 6, estado_item)
             btn_hist = QPushButton("Ver")
             btn_hist.clicked.connect(lambda _, cod=codigo: self.ver_historial(cod, eliminado=True))
-            self.tabla_eli.setCellWidget(row_num, 6, btn_hist)
+            self.tabla_eli.setCellWidget(row_num, 7, btn_hist)
 
     def exportar(self):
         QMessageBox.information(self, "Exportar", "Funcionalidad de exportar a PDF/Excel pendiente de implementar.")

@@ -480,10 +480,15 @@ class ProductManagementWindow(QMainWindow):
             fecha_str = ""
             if fecha_venc:
                 try:
-                    fecha = datetime.strptime(str(fecha_venc), "%Y-%m-%d")
-                    fecha_str = fecha.strftime("%Y-%m-%d")
+                    # Si fecha_venc es un entero tipo timestamp, conviértelo
+                    if isinstance(fecha_venc, int) or (isinstance(fecha_venc, str) and fecha_venc.isdigit()):
+                        fecha = datetime.fromtimestamp(int(fecha_venc))
+                        fecha_str = fecha.strftime("%Y-%m-%d")
+                    else:
+                        fecha = datetime.strptime(str(fecha_venc), "%Y-%m-%d")
+                        fecha_str = fecha.strftime("%Y-%m-%d")
                 except Exception:
-                    fecha_str = str(fecha_venc)
+                    fecha_str = ""  # Si no se puede convertir, lo deja vacío
             self.table.setItem(row_num, 9, QTableWidgetItem(fecha_str))
             # Empleado
             self.table.setItem(row_num, 10, QTableWidgetItem(str(id_empleado)))
@@ -591,7 +596,7 @@ class ProductManagementWindow(QMainWindow):
 
     def _edit_product(self, product_id):
         self.close()
-        abrir_aplicacion("Modificar_producto.py", [str(product_id), str(self.empleado_actual_id)])
+        abrir_aplicacion("editar_producto.py", [str(product_id), str(self.empleado_actual_id)])
 
     def _open_insert_product(self):
         self.close()

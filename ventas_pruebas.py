@@ -79,14 +79,13 @@ class VentasWindow(QMainWindow):
         self.tabla = QTableWidget()
         self.tabla.setColumnCount(6)
         self.tabla.setHorizontalHeaderLabels([
-            "Nombre", "Código", "Precio", "Cajas", "Paquetes", "Unidades"
+            "Nombre", "Código", "Precio", "Cajas", "Unidades/Caja", "unidades Totales"
         ])
         self.tabla.setColumnWidth(0, 200)  # Nombre
         self.tabla.setColumnWidth(1, 100)  # Código
         self.tabla.setColumnWidth(2, 90)   # Precio
         self.tabla.setColumnWidth(3, 70)   # Cajas
-        self.tabla.setColumnWidth(4, 110)  # Paquetes
-        self.tabla.setColumnWidth(5, 110)  # Unidades
+        self.tabla.setColumnWidth(4, 110)  # Unidades/Caja
         self.tabla.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.tabla.setSelectionBehavior(QTableWidget.SelectRows)
         self.tabla.setEditTriggers(QTableWidget.NoEditTriggers)
@@ -147,6 +146,23 @@ class VentasWindow(QMainWindow):
         pago_layout.addWidget(self.label_cambio)
         main_layout.addLayout(pago_layout)
 
+        # Panel de descuento
+        descuento_layout = QHBoxLayout()
+        descuento_label = QLabel("Descuento (%):")
+        descuento_layout.addWidget(descuento_label)
+        self.input_descuento = QLineEdit()
+        self.input_descuento.setPlaceholderText("Ejemplo: 10")
+        descuento_layout.addWidget(self.input_descuento)
+        btn_aplicar_descuento = QPushButton("Aplicar Descuento")
+        btn_aplicar_descuento.clicked.connect(self.aplicar_descuento)
+        descuento_layout.addWidget(btn_aplicar_descuento)
+        self.label_descuento = QLabel("Descuento aplicado: 0.00 Bs.")
+        self.label_descuento.setStyleSheet("font-size: 16px; color: #0984e3;")
+        descuento_layout.addWidget(self.label_descuento)
+        main_layout.addLayout(descuento_layout)
+
+        self.descuento_porcentaje = 0.0  # Variable para guardar el descuento aplicado
+
         # Botón de menú principal
         btn_menu = QPushButton("Menú Principal")
         btn_menu.setStyleSheet("background-color: #FFD700; font-size: 14px;")
@@ -157,63 +173,72 @@ class VentasWindow(QMainWindow):
         self.cargar_todos_productos()
 
     def cargar_todos_productos(self):
-        """Carga todos los productos con stock disponible en la tabla principal."""
-        self.cursor.execute("SELECT id_producto, nombre, codigo, precio, cajas, paquetes FROM productos")
-        productos = self.cursor.fetchall()
-        resultados = []
-        for prod in productos:
-            id_producto, nombre, codigo, precio, cajas, paquetes = prod
-
-            # Obtener unidades_totales de productos_unidades
-            self.cursor.execute("SELECT unidades_totales FROM productos_unidades WHERE id_producto = ?", (id_producto,))
-            row_unidades = self.cursor.fetchone()
-            unidades_totales = row_unidades[0] if row_unidades else 0
-
-            resultados.append((nombre, codigo, precio, cajas, paquetes, unidades_totales))
+        """Carga todos los productos de las tres tablas."""
+        sql = """
+            SELECT id_producto, nombre, codigo, precio_paquete as precio, 0 as cajas, paquetes_disponibles as paquetes, 0 as unidades, 'productos_paquetes' as origen
+            
+            FROM productos_paquetes WHERE paquetes_disponibles > 0
+            
+            UNION ALL
+            
+            SELECT id_producto, nombre, codigo, precio_unitario as precio, 0 as cajas, 0 as paquetes, unidades_totales as unidades, 'productos_unidades' as origen
+            
+            FROM productos_unidades WHERE unidades_totales > 0
+        """
+        self.cursor.execute(sql)
+        resultados = self.cursor.fetchall()
         self.mostrar_productos(resultados)
         self.spin_cantidad.setMaximum(1)
 
     def buscar_producto(self):
-        """Busca productos por nombre o código según el texto ingresado en el buscador."""
+        """Busca productos por nombre o código en las tres tablas y muestra los datos relevantes."""
         texto = self.input_busqueda.text().strip()
         if not texto:
             self.cargar_todos_productos()
             return
-        sql = """
-            SELECT id_producto, nombre, codigo, precio, cajas, paquetes, unidades, unidades_por_paquete, paquetes_por_caja
-            FROM productos
-            WHERE (
-                (cajas > 0 OR paquetes > 0 OR unidades > 0)
-            ) AND (
-                nombre LIKE ? OR codigo LIKE ?
-            )
-        """
         like = f"%{texto}%"
-        self.cursor.execute(sql, (like, like))
-        productos = self.cursor.fetchall()
-        resultados = []
-        for prod in productos:
-            id_producto, nombre, codigo, precio, cajas, paquetes, unidades, unidades_por_paquete, paquetes_por_caja = prod
-            total_unidades = (
-                (cajas if cajas else 0) * (paquetes_por_caja if paquetes_por_caja else 0) * (unidades_por_paquete if unidades_por_paquete else 0)
-                + (paquetes if paquetes else 0) * (unidades_por_paquete if unidades_por_paquete else 0)
-                + (unidades if unidades else 0)
-            )
-            resultados.append((nombre, codigo, precio, cajas, paquetes, total_unidades))
+        sql = """
+            SELECT id_producto, nombre, codigo, precio, cajas, paquetes, unidades
+            FROM productos
+            WHERE (nombre LIKE ? OR codigo LIKE ?)
+            UNION ALL
+            SELECT id_producto, nombre, codigo, precio_paquete, 0 as cajas, paquetes_disponibles as paquetes, 0 as unidades
+            FROM productos_paquetes
+            WHERE (nombre LIKE ? OR codigo LIKE ?)
+            UNION ALL
+            SELECT id_producto, nombre, codigo, precio_unitario, 0 as cajas, 0 as paquetes, unidades_totales
+            FROM productos_unidades
+            WHERE (nombre LIKE ? OR codigo LIKE ?)
+        """
+        self.cursor.execute(sql, (like, like, like, like, like, like))
+        resultados = self.cursor.fetchall()
         self.mostrar_productos(resultados)
 
     def mostrar_productos(self, resultados):
-        """Muestra los productos en la tabla principal con cajas, paquetes y unidades totales."""
+        """Muestra los productos en la tabla principal con datos de las tres tablas."""
         self.tabla.setRowCount(0)
         for row_num, row_data in enumerate(resultados):
-            nombre, codigo, precio, cajas, paquetes, total_unidades = row_data
+            id_producto, nombre, codigo, precio, cajas, paquetes, unidades, origen = row_data
+            # Determina el tipo de producto y el stock total
+            if cajas > 0 or paquetes > 0 or unidades > 0:
+                # Producto por caja/paquete/unidad
+                stock_total = (
+                    (cajas if cajas else 0) * (paquetes if paquetes else 1) * (unidades if unidades else 1)
+                    if cajas > 0 and paquetes > 0 and unidades > 0 else
+                    (paquetes if paquetes else 0) * (unidades if unidades else 1)
+                    if paquetes > 0 and unidades > 0 else
+                    unidades
+                )
+            else:
+                stock_total = unidades  # Para productos_unidades
+
             self.tabla.insertRow(row_num)
             self.tabla.setItem(row_num, 0, QTableWidgetItem(str(nombre)))
             self.tabla.setItem(row_num, 1, QTableWidgetItem(str(codigo)))
             self.tabla.setItem(row_num, 2, QTableWidgetItem(f"{precio:.2f} Bs."))
-            self.tabla.setItem(row_num, 3, QTableWidgetItem(str(cajas if cajas else "")))
+            self.tabla.setItem(row_num, 3, QTableWidgetItem(str(cajas if cajas else "")))  # <-- Aquí se muestra cajas
             self.tabla.setItem(row_num, 4, QTableWidgetItem(str(paquetes if paquetes else "")))
-            self.tabla.setItem(row_num, 5, QTableWidgetItem(f"{total_unidades:,}".replace(",", ".")))
+            self.tabla.setItem(row_num, 5, QTableWidgetItem(str(stock_total)))
         self.tabla.resizeColumnsToContents()
         self.spin_cantidad.setMaximum(1)
 
@@ -224,7 +249,7 @@ class VentasWindow(QMainWindow):
             self.spin_cantidad.setMaximum(1)
             return
         try:
-            stock = int(self.tabla.item(selected, 5).text().replace(".", ""))
+            stock = int(self.tabla.item(selected, 5).text())
         except Exception:
             stock = 1
         self.spin_cantidad.setMaximum(max(1, stock))
@@ -240,8 +265,8 @@ class VentasWindow(QMainWindow):
             codigo = self.tabla.item(selected, 1).text()
             precio = float(self.tabla.item(selected, 2).text().replace(" Bs.", ""))
             cajas = int(self.tabla.item(selected, 3).text()) if self.tabla.item(selected, 3).text() else 0
-            paquetes = int(self.tabla.item(selected, 4).text()) if self.tabla.item(selected, 4).text() else 0
-            stock = int(self.tabla.item(selected, 5).text()) if self.tabla.item(selected, 5).text() else 0
+            unidades = int(self.tabla.item(selected, 4).text()) if self.tabla.item(selected, 4).text() else 0
+            stock = int(self.tabla.item(selected, 5).text())
             # Buscar el id_producto en la base de datos usando código
             self.cursor.execute("SELECT id_producto FROM productos WHERE codigo = ?", (codigo,))
             result = self.cursor.fetchone()
@@ -257,13 +282,13 @@ class VentasWindow(QMainWindow):
         tipo_venta = self.combo_tipo_venta.currentText()
 
         if tipo_venta == "Por caja":
-            self.cursor.execute("SELECT unidades_por_paquete, paquetes_por_caja FROM productos WHERE id_producto = ?", (producto_id,))
-            row = self.cursor.fetchone()
-            if not row:
-                QMessageBox.warning(self, "Error", "No se encontró la configuración de la caja.")
+            if cajas == 0 or unidades == 0:
+                QMessageBox.warning(self, "No disponible", "Este producto no tiene cajas configuradas.")
                 return
-            unidades_por_paquete, paquetes_por_caja = row
-            cantidad_unidades = cantidad * paquetes_por_caja * unidades_por_paquete
+            if cantidad > cajas:
+                QMessageBox.warning(self, "Stock Insuficiente", f"No hay suficientes cajas de '{nombre}'.")
+                return
+            cantidad_unidades = cantidad * unidades
             descripcion = f"{cantidad} caja(s) ({cantidad_unidades} unidades)"
         else:
             if cantidad > stock:
@@ -320,44 +345,80 @@ class VentasWindow(QMainWindow):
         self.label_total.setText("Total: 0.00 Bs.")
         QMessageBox.information(self, "Venta Cancelada", "La venta ha sido cancelada y el carrito vaciado.")
 
+    def aplicar_descuento(self):
+        """Aplica un descuento porcentual al total de la venta."""
+        try:
+            porcentaje = float(self.input_descuento.text())
+            if porcentaje < 0 or porcentaje > 100:
+                QMessageBox.warning(self, "Descuento inválido", "Ingrese un porcentaje entre 0 y 100.")
+                return
+            self.descuento_porcentaje = porcentaje
+            total = sum(item["cantidad_unidades"] * item["precio"] for item in self.carrito)
+            descuento = total * (porcentaje / 100)
+            total_con_descuento = total - descuento
+            self.label_descuento.setText(f"Descuento aplicado: {descuento:.2f} Bs.")
+            self.label_total.setText(f"Total: {total_con_descuento:.2f} Bs.")
+        except Exception:
+            QMessageBox.warning(self, "Error", "Ingrese un porcentaje válido.")
+
     def vender_todo(self):
-        """Procesa la venta de todos los productos en el carrito, actualiza inventario y registra el movimiento."""
+        """Procesa la venta de todos los productos en el carrito, actualiza stock y registra el movimiento."""
         if not self.carrito:
             QMessageBox.warning(self, "Carrito Vacío", "Agregue productos al carrito antes de procesar la venta.")
             return
         fecha_mov = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        total = sum(item["cantidad_unidades"] * item["precio"] for item in self.carrito)
+        descuento = total * (self.descuento_porcentaje / 100)
+        total_con_descuento = total - descuento
         for item in self.carrito:
-            self.cursor.execute("SELECT cajas, paquetes, unidades FROM productos WHERE id_producto = ?", (item["id"],))
+            # Obtener datos actuales del producto
+            self.cursor.execute("SELECT cajas, unidades, stock FROM productos WHERE id_producto = ?", (item["id"],))
             result = self.cursor.fetchone()
             if not result:
                 continue
-            cajas_actual, paquetes_actual, unidades_actual = result
+            cajas_actual, unidades_por_caja, stock_actual = result
 
             if item["tipo"] == "Por caja":
+                # Descontar cajas y stock
                 nuevas_cajas = cajas_actual - item["cantidad"]
+                nuevas_unidades = unidades_por_caja
+                nuevas_stock = nuevas_cajas * nuevas_unidades
                 self.cursor.execute(
-                    "UPDATE productos SET cajas = ? WHERE id_producto = ?",
-                    (nuevas_cajas, item["id"])
+                    "UPDATE productos SET cajas = ?, stock = ? WHERE id_producto = ?",
+                    (nuevas_cajas, nuevas_stock, item["id"])
                 )
             else:  # Por unidad
-                unidades_vendidas = self.vender_unidad(item["id"], item["cantidad"])
-                if unidades_vendidas < item["cantidad"]:
-                    QMessageBox.warning(self, "Stock insuficiente", f"Solo se vendieron {unidades_vendidas} unidades de '{item['nombre']}'.")
+                # Descontar unidades y ajustar cajas si corresponde
+                unidades_vendidas = item["cantidad"]
+                total_unidades = cajas_actual * unidades_por_caja if cajas_actual and unidades_por_caja else stock_actual
+                nuevas_total_unidades = total_unidades - unidades_vendidas
+
+                if cajas_actual and unidades_por_caja:
+                    nuevas_cajas = nuevas_total_unidades // unidades_por_caja
+                    nuevas_unidades = nuevas_total_unidades % unidades_por_caja
+                    # Si hay unidades sueltas, se guardan en stock y cajas
+                    self.cursor.execute(
+                        "UPDATE productos SET cajas = ?, unidades = ?, stock = ? WHERE id_producto = ?",
+                        (nuevas_cajas, nuevas_unidades, nuevas_total_unidades, item["id"])
+                    )
+                else:
+                    # Solo descontar del stock si no hay cajas configuradas
+                    self.cursor.execute(
+                        "UPDATE productos SET stock = ? WHERE id_producto = ?",
+                        (nuevas_total_unidades, item["id"])
+                    )
 
             # Registrar movimiento
             self.cursor.execute(
                 "INSERT INTO movimientos_inventario (codigo_producto, tipo_movimiento, cantidad, fecha_movimiento, observaciones, usuario) VALUES (?, ?, ?, ?, ?, ?)",
                 (item["codigo"], "venta", item["cantidad"], fecha_mov, "Venta realizada desde sistema admin", "admin")
             )
-
-            # ¡Actualiza el total de unidades después de cada venta!
-            # self.actualizar_unidades_totales(item["id"])  # Removed: 'item' is not defined here
-
         self.conexion.commit()
         self.carrito = []
         self.tabla_carrito.setRowCount(0)
         self.label_total.setText("Total: 0.00 Bs.")
-        QMessageBox.information(self, "Venta procesada", "Venta realizada correctamente.")
+        self.label_descuento.setText("Descuento aplicado: 0.00 Bs.")
+        QMessageBox.information(self, "Venta procesada", f"Venta realizada correctamente.\nTotal con descuento: {total_con_descuento:.2f} Bs.")
         self.cargar_todos_productos()
 
     def calcular_cambio(self):
@@ -412,66 +473,6 @@ class VentasWindow(QMainWindow):
             subprocess.Popen([sys.executable, script_path])
         except Exception as e:
             QMessageBox.critical(self, "Error", f"No se pudo abrir menu.py: {e}")
-
-    def vender_unidad(self, producto_id, cantidad=1):
-        # Obtener unidades sueltas de productos_unidades
-        self.cursor.execute("SELECT unidades FROM productos_unidades WHERE id_producto = ?", (producto_id,))
-        row_unidades = self.cursor.fetchone()
-        unidades_sueltas = row_unidades[0] if row_unidades else 0
-
-        # Obtener paquetes disponibles de productos_paquetes
-        self.cursor.execute("SELECT paquetes_disponibles, unidades_por_paquete FROM productos_paquetes WHERE id_producto = ?", (producto_id,))
-        row_paquetes = self.cursor.fetchone()
-        paquetes_disponibles = row_paquetes[0] if row_paquetes else 0
-        unidades_por_paquete_db = row_paquetes[1] if row_paquetes else 0
-
-        unidades_vendidas = 0
-        while cantidad > 0:
-            if unidades_sueltas > 0:
-                vender = min(unidades_sueltas, cantidad)
-                unidades_sueltas -= vender
-                cantidad -= vender
-                unidades_vendidas += vender
-                self.cursor.execute(
-                    "UPDATE productos_unidades SET unidades = ? WHERE id_producto = ?",
-                    (unidades_sueltas, producto_id)
-                )
-            elif paquetes_disponibles > 0:
-                # Pregunta si desea abrir un paquete
-                respuesta = QMessageBox.question(
-                    self,
-                    "Abrir paquete",
-                    "No hay unidades sueltas, ¿deseas abrir un paquete?",
-                    QMessageBox.Yes | QMessageBox.No
-                )
-                if respuesta == QMessageBox.Yes:
-                    paquetes_disponibles -= 1
-                    unidades_sueltas = unidades_por_paquete_db
-                    self.cursor.execute(
-                        "UPDATE productos_paquetes SET paquetes_disponibles = ? WHERE id_producto = ?",
-                        (paquetes_disponibles, producto_id)
-                    )
-                else:
-                    break
-            else:
-                QMessageBox.warning(self, "Sin stock", "No hay unidades sueltas ni paquetes disponibles.")
-                break
-
-        self.cursor.execute(
-            "UPDATE productos_unidades SET unidades = ? WHERE id_producto = ?",
-            (unidades_sueltas, producto_id)
-        )
-        self.conexion.commit()
-        return unidades_vendidas
-
-    def actualizar_unidades_totales(self, producto_id):
-        self.cursor.execute("SELECT cajas, paquetes, unidades, unidades_por_paquete, paquetes_por_caja FROM productos WHERE id_producto = ?", (producto_id,))
-        prod = self.cursor.fetchone()
-        if prod:
-            cajas, paquetes, unidades, unidades_por_paquete, paquetes_por_caja = [x if x else 0 for x in prod]
-            total = cajas * paquetes_por_caja * unidades_por_paquete + paquetes * unidades_por_paquete + unidades
-            self.cursor.execute("UPDATE productos_unidades SET unidades_totales = ? WHERE id_producto = ?", (total, producto_id))
-            self.conexion.commit()
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)

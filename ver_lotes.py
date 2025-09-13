@@ -205,7 +205,7 @@ class VerLotesWindow(QMainWindow):
 
     def abrir_insertar_lote(self):
         try:
-            from insertar_lotes import InsertarLoteWindow
+            from registrar_lote import InsertarLoteWindow
         except ImportError:
             QMessageBox.critical(self, "Error", "No se pudo importar la ventana para insertar lotes.")
             return

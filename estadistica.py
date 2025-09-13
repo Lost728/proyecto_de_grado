@@ -341,7 +341,7 @@ class EstadisticasVentas(QMainWindow):
 
     def volver_a_venta_registro(self):
         try:
-            from venta_registro import LibroDiarioVentas
+            from registro_ventas import LibroDiarioVentas
             self.nueva_ventana = LibroDiarioVentas()
             self.nueva_ventana.show()
             self.close()

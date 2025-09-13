@@ -39,24 +39,27 @@ class MenuPrincipal(QMainWindow):
         title.setStyleSheet("font-size: 24px; font-weight: bold;")
         layout.addWidget(title)
 
-        # Lista de botones y scripts
+        # Lista de botones y scripts (sin duplicados y con nombres claros)
         botones = [
             ("Realizar ventas", "ventas_admin.py"),
+            ("Ventas empleados", "ventas_empleados.py"),
+            ("Ventas pruebas", "ventas_pruebas.py"),
             ("Ver Productos", "ver_productos.py"),
-            ("Insertar Producto", "insertar_producto.py"),
-            ("Ventas", "ventas_admin.py"),
-            ("Ver Empleados", "buscar_empleado.py"),
-            ("Estadisticas", "estadistica.py"),
-            ("Insertar Empleado", "insertar_empleado.py"),
-            ("Reporte General", "reporte.py"),
-            ("Reporte de Productos", "reporte_producto.py"),
+            ("Registrar Producto", "registrar_producto.py"),
+            ("Empleados", "buscar_empleado.py"),
+            ("Registrar Empleado", "registrar_emp.py"),
+            ("Devoluciones", "devoluciones.py"),
+            ("Lotes", "ver_lotes.py"),
+            ("Registrar Lote", "registrar_lote.py"),
+            ("Proveedores", "ver_proveedor.py"),
+            ("Registrar Proveedor", "registrar_proveedor.py"),
             ("Productos Eliminados", "productos_eliminados.py"),
-            ("Empleados Eliminados", "emp_eliminados.py"),
+            ("Empleados Retirados", "emp_eliminados.py"),
             ("Historial de Producto", "historial_prod.py"),
-            ("Ver Lotes", "ver_lotes.py"),
-            ("Ver Proveedor", "ver_proveedor.py"),
-            #("Exportar Base de Datos", "exportar_db"),
-            ("Volver", "volver")
+            ("Estadísticas", "estadistica.py"),
+            ("Reporte de Productos", "reporte_productos.py"),
+            ("Reporte de Empleados", "reporte_emp.py"),
+            ("Volver", "acceso.py"),
         ]
 
         for texto, script in botones:

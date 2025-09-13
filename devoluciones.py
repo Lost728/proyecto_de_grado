@@ -63,6 +63,12 @@ class DevolucionesWindow(QMainWindow):
         self.tabla.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         main_layout.addWidget(self.tabla)
 
+        # Botón para volver al menú principal
+        btn_menu = QPushButton("Menú Principal")
+        btn_menu.setStyleSheet("background-color: #FFD700; color: black; font-weight: bold; padding: 8px 15px; border-radius: 5px;")
+        btn_menu.clicked.connect(self.ir_menu_principal)
+        main_layout.addWidget(btn_menu, alignment=Qt.AlignLeft)
+
         self.setCentralWidget(central)
 
     def _load_productos(self):
@@ -112,6 +118,15 @@ class DevolucionesWindow(QMainWindow):
             self.tabla.insertRow(row_num)
             for col_num, data in enumerate(row_data):
                 self.tabla.setItem(row_num, col_num, QTableWidgetItem(str(data)))
+
+    def ir_menu_principal(self):
+        import os, subprocess
+        script_path = os.path.join(os.path.dirname(__file__), "menu.py")
+        if not os.path.exists(script_path):
+            QMessageBox.critical(self, "Error", f"No se encontró el archivo: {script_path}")
+            return
+        self.close()
+        subprocess.Popen([sys.executable, script_path])
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
