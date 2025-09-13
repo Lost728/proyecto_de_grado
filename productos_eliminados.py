@@ -67,9 +67,10 @@ class ProductosEliminadosWindow(QMainWindow):
         main_layout.addLayout(buscador_layout)
 
         self.tabla = QTableWidget()
-        self.tabla.setColumnCount(9)
+        self.tabla.setColumnCount(13)
         self.tabla.setHorizontalHeaderLabels([
-            "ID", "Código", "Imagen", "Nombre", "Precio", "Stock", "Fecha Venc.", "ID Empleado", "Acciones"
+            "ID", "Código", "Imagen", "Nombre", "Precio", "Fecha Venc.", "ID Empleado",
+            "Cajas", "Paquetes", "Unidades", "Unid./Paquete", "Paq./Caja", "Acciones"
         ])
         self.tabla.horizontalHeader().setStretchLastSection(True)
         main_layout.addWidget(self.tabla)
@@ -85,14 +86,16 @@ class ProductosEliminadosWindow(QMainWindow):
             cursor = conn.cursor()
             if filtro:
                 cursor.execute("""
-                    SELECT id_producto, codigo, imagen, nombre, precio, stock, fecha_venc, id_empleado
+                    SELECT id_producto, codigo, imagen, nombre, precio, fecha_venc, id_empleado,
+                           cajas, paquetes, unidades, unidades_por_paquete, paquetes_por_caja
                     FROM productos_borrados
                     WHERE nombre LIKE ? OR codigo LIKE ?
                     ORDER BY id_producto DESC
                 """, (f"%{filtro}%", f"%{filtro}%"))
             else:
                 cursor.execute("""
-                    SELECT id_producto, codigo, imagen, nombre, precio, stock, fecha_venc, id_empleado
+                    SELECT id_producto, codigo, imagen, nombre, precio, fecha_venc, id_empleado,
+                           cajas, paquetes, unidades, unidades_por_paquete, paquetes_por_caja
                     FROM productos_borrados
                     ORDER BY id_producto DESC
                 """)
@@ -101,17 +104,38 @@ class ProductosEliminadosWindow(QMainWindow):
 
             for row_num, row_data in enumerate(productos):
                 self.tabla.insertRow(row_num)
-                for col_num, data in enumerate(row_data):
-                    # Formatear fecha_venc si es timestamp
-                    if col_num == 6 and data:
-                        try:
-                            fecha = datetime.fromtimestamp(int(data)).strftime("%Y-%m-%d")
-                        except Exception:
-                            fecha = str(data)
-                        item = QTableWidgetItem(fecha)
-                    else:
-                        item = QTableWidgetItem(str(data) if data is not None else "")
-                    self.tabla.setItem(row_num, col_num, item)
+                # Desempaqueta los datos
+                (id_producto, codigo, imagen, nombre, precio, fecha_venc, id_empleado,
+                 cajas, paquetes, unidades, unidades_por_paquete, paquetes_por_caja) = row_data
+
+                self.tabla.setItem(row_num, 0, QTableWidgetItem(str(id_producto)))
+                self.tabla.setItem(row_num, 1, QTableWidgetItem(str(codigo)))
+                # Imagen
+                img_item = QTableWidgetItem()
+                if imagen and os.path.exists(imagen):
+                    from PyQt5.QtGui import QPixmap
+                    pixmap = QPixmap(imagen).scaled(40, 40, Qt.KeepAspectRatio)
+                    img_item.setData(Qt.DecorationRole, pixmap)
+                else:
+                    img_item.setText("[img]")
+                self.tabla.setItem(row_num, 2, img_item)
+                self.tabla.setItem(row_num, 3, QTableWidgetItem(str(nombre)))
+                self.tabla.setItem(row_num, 4, QTableWidgetItem(f"{precio:.2f}"))
+                # Fecha vencimiento
+                if fecha_venc:
+                    try:
+                        fecha = datetime.fromtimestamp(int(fecha_venc)).strftime("%Y-%m-%d")
+                    except Exception:
+                        fecha = str(fecha_venc)
+                    self.tabla.setItem(row_num, 5, QTableWidgetItem(fecha))
+                else:
+                    self.tabla.setItem(row_num, 5, QTableWidgetItem(""))
+                self.tabla.setItem(row_num, 6, QTableWidgetItem(str(id_empleado)))
+                self.tabla.setItem(row_num, 7, QTableWidgetItem(str(cajas)))
+                self.tabla.setItem(row_num, 8, QTableWidgetItem(str(paquetes)))
+                self.tabla.setItem(row_num, 9, QTableWidgetItem(str(unidades)))
+                self.tabla.setItem(row_num, 10, QTableWidgetItem(str(unidades_por_paquete)))
+                self.tabla.setItem(row_num, 11, QTableWidgetItem(str(paquetes_por_caja)))
 
                 # Columna de acciones
                 acciones_widget = QWidget()
@@ -120,16 +144,16 @@ class ProductosEliminadosWindow(QMainWindow):
 
                 btn_restaurar = QPushButton("Restaurar")
                 btn_restaurar.setStyleSheet("background-color: #4CAF50; color: white;")
-                btn_restaurar.clicked.connect(lambda _, rid=row_data[0]: self.restaurar_producto(rid))
+                btn_restaurar.clicked.connect(lambda _, rid=id_producto: self.restaurar_producto(rid))
                 acciones_layout.addWidget(btn_restaurar)
 
                 btn_eliminar = QPushButton("Eliminar")
                 btn_eliminar.setStyleSheet("background-color: #e53935; color: white;")
-                btn_eliminar.clicked.connect(lambda _, rid=row_data[0]: self.eliminar_producto(rid))
+                btn_eliminar.clicked.connect(lambda _, rid=id_producto: self.eliminar_producto(rid))
                 acciones_layout.addWidget(btn_eliminar)
 
                 acciones_widget.setLayout(acciones_layout)
-                self.tabla.setCellWidget(row_num, 8, acciones_widget)
+                self.tabla.setCellWidget(row_num, 12, acciones_widget)
         except Exception as e:
             self.tabla.setRowCount(0)
             self.tabla.setColumnCount(1)
@@ -147,12 +171,14 @@ class ProductosEliminadosWindow(QMainWindow):
             cursor = conn.cursor()
             # Recuperar datos del producto eliminado
             cursor.execute("""
-                SELECT codigo, imagen, nombre, precio, stock, fecha_venc, id_empleado
+                SELECT codigo, imagen, nombre, precio, fecha_venc, id_empleado,
+                       cajas, paquetes, unidades, unidades_por_paquete, paquetes_por_caja
                 FROM productos_borrados WHERE id_producto = ?
             """, (producto_id,))
             producto = cursor.fetchone()
             if producto:
-                codigo_actual, imagen, nombre, precio, stock, fecha_venc, id_empleado = producto
+                (codigo_actual, imagen, nombre, precio, fecha_venc, id_empleado,
+                 cajas, paquetes, unidades, unidades_por_paquete, paquetes_por_caja) = producto
 
                 while True:
                     # Pedir al usuario el nuevo código (o dejar el mismo)
@@ -181,9 +207,14 @@ class ProductosEliminadosWindow(QMainWindow):
                     else:
                         # Código único, proceder a restaurar
                         cursor.execute("""
-                            INSERT INTO productos (codigo, imagen, nombre, precio, stock, fecha_venc, id_empleado)
-                            VALUES (?, ?, ?, ?, ?, ?, ?)
-                        """, (nuevo_codigo, imagen, nombre, precio, stock, fecha_venc, id_empleado))
+                            INSERT INTO productos (
+                                codigo, imagen, nombre, precio, fecha_venc, id_empleado,
+                                cajas, paquetes, unidades, unidades_por_paquete, paquetes_por_caja
+                            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        """, (
+                            nuevo_codigo, imagen, nombre, precio, fecha_venc, id_empleado,
+                            cajas, paquetes, unidades, unidades_por_paquete, paquetes_por_caja
+                        ))
                         # Eliminar de productos_borrados
                         cursor.execute("DELETE FROM productos_borrados WHERE id_producto = ?", (producto_id,))
                         conn.commit()

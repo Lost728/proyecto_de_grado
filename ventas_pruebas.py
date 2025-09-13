@@ -77,15 +77,15 @@ class VentasWindow(QMainWindow):
 
         # Tabla de productos
         self.tabla = QTableWidget()
-        self.tabla.setColumnCount(6)
+        self.tabla.setColumnCount(5)
         self.tabla.setHorizontalHeaderLabels([
-            "Nombre", "Código", "Precio", "Cajas", "Unidades/Caja", "unidades Totales"
+            "Nombre", "Código", "Precio", "Cajas", "Paquetes"
         ])
         self.tabla.setColumnWidth(0, 200)  # Nombre
         self.tabla.setColumnWidth(1, 100)  # Código
         self.tabla.setColumnWidth(2, 90)   # Precio
         self.tabla.setColumnWidth(3, 70)   # Cajas
-        self.tabla.setColumnWidth(4, 110)  # Unidades/Caja
+        self.tabla.setColumnWidth(4, 70)   # Paquetes
         self.tabla.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.tabla.setSelectionBehavior(QTableWidget.SelectRows)
         self.tabla.setEditTriggers(QTableWidget.NoEditTriggers)
@@ -173,17 +173,18 @@ class VentasWindow(QMainWindow):
         self.cargar_todos_productos()
 
     def cargar_todos_productos(self):
-        """Carga todos los productos de las tres tablas."""
+        """Carga productos mostrando columnas cajas y paquetes desde las tablas correspondientes."""
         sql = """
-            SELECT id_producto, nombre, codigo, precio_paquete as precio, 0 as cajas, paquetes_disponibles as paquetes, 0 as unidades, 'productos_paquetes' as origen
-            
-            FROM productos_paquetes WHERE paquetes_disponibles > 0
-            
+            SELECT nombre, codigo, precio, cajas, 0 as paquetes
+            FROM productos
+            WHERE cajas > 0
             UNION ALL
             
-            SELECT id_producto, nombre, codigo, precio_unitario as precio, 0 as cajas, 0 as paquetes, unidades_totales as unidades, 'productos_unidades' as origen
+            -- esta columna es de los paques --
             
-            FROM productos_unidades WHERE unidades_totales > 0
+            SELECT nombre, codigo, precio_paquete, 0 as cajas, paquetes_disponibles
+            FROM productos_paquetes
+            WHERE paquetes_disponibles > 0
         """
         self.cursor.execute(sql)
         resultados = self.cursor.fetchall()
@@ -191,54 +192,36 @@ class VentasWindow(QMainWindow):
         self.spin_cantidad.setMaximum(1)
 
     def buscar_producto(self):
-        """Busca productos por nombre o código en las tres tablas y muestra los datos relevantes."""
+        """Busca productos por nombre o código y muestra columnas cajas y paquetes correctamente."""
         texto = self.input_busqueda.text().strip()
         if not texto:
             self.cargar_todos_productos()
             return
         like = f"%{texto}%"
         sql = """
-            SELECT id_producto, nombre, codigo, precio, cajas, paquetes, unidades
+            SELECT nombre, codigo, precio, cajas, 0 as paquetes
             FROM productos
             WHERE (nombre LIKE ? OR codigo LIKE ?)
             UNION ALL
-            SELECT id_producto, nombre, codigo, precio_paquete, 0 as cajas, paquetes_disponibles as paquetes, 0 as unidades
+            SELECT nombre, codigo, precio_paquete, 0 as cajas, paquetes_disponibles
             FROM productos_paquetes
             WHERE (nombre LIKE ? OR codigo LIKE ?)
-            UNION ALL
-            SELECT id_producto, nombre, codigo, precio_unitario, 0 as cajas, 0 as paquetes, unidades_totales
-            FROM productos_unidades
-            WHERE (nombre LIKE ? OR codigo LIKE ?)
         """
-        self.cursor.execute(sql, (like, like, like, like, like, like))
+        self.cursor.execute(sql, (like, like, like, like))
         resultados = self.cursor.fetchall()
         self.mostrar_productos(resultados)
 
     def mostrar_productos(self, resultados):
-        """Muestra los productos en la tabla principal con datos de las tres tablas."""
+        """Muestra los productos en la tabla principal con columnas cajas y paquetes."""
         self.tabla.setRowCount(0)
         for row_num, row_data in enumerate(resultados):
-            id_producto, nombre, codigo, precio, cajas, paquetes, unidades, origen = row_data
-            # Determina el tipo de producto y el stock total
-            if cajas > 0 or paquetes > 0 or unidades > 0:
-                # Producto por caja/paquete/unidad
-                stock_total = (
-                    (cajas if cajas else 0) * (paquetes if paquetes else 1) * (unidades if unidades else 1)
-                    if cajas > 0 and paquetes > 0 and unidades > 0 else
-                    (paquetes if paquetes else 0) * (unidades if unidades else 1)
-                    if paquetes > 0 and unidades > 0 else
-                    unidades
-                )
-            else:
-                stock_total = unidades  # Para productos_unidades
-
+            nombre, codigo, precio, cajas, paquetes = row_data
             self.tabla.insertRow(row_num)
             self.tabla.setItem(row_num, 0, QTableWidgetItem(str(nombre)))
             self.tabla.setItem(row_num, 1, QTableWidgetItem(str(codigo)))
             self.tabla.setItem(row_num, 2, QTableWidgetItem(f"{precio:.2f} Bs."))
-            self.tabla.setItem(row_num, 3, QTableWidgetItem(str(cajas if cajas else "")))  # <-- Aquí se muestra cajas
-            self.tabla.setItem(row_num, 4, QTableWidgetItem(str(paquetes if paquetes else "")))
-            self.tabla.setItem(row_num, 5, QTableWidgetItem(str(stock_total)))
+            self.tabla.setItem(row_num, 3, QTableWidgetItem(str(cajas)))
+            self.tabla.setItem(row_num, 4, QTableWidgetItem(str(paquetes)))
         self.tabla.resizeColumnsToContents()
         self.spin_cantidad.setMaximum(1)
 
