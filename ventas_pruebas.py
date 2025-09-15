@@ -77,15 +77,12 @@ class VentasWindow(QMainWindow):
 
         # Tabla de productos
         self.tabla = QTableWidget()
-        self.tabla.setColumnCount(5)
+        self.tabla.setColumnCount(11)
         self.tabla.setHorizontalHeaderLabels([
-            "Nombre", "Código", "Precio", "Cajas", "Paquetes"
+            "Código", "Nombre", "Imagen", "Precio", "Cajas", "Paquetes",
+            "Paquetes Totales", "Unidades por Paquete", "Unidades Totales",
+            "Fecha Venc.", "Empleado"
         ])
-        self.tabla.setColumnWidth(0, 200)  # Nombre
-        self.tabla.setColumnWidth(1, 100)  # Código
-        self.tabla.setColumnWidth(2, 90)   # Precio
-        self.tabla.setColumnWidth(3, 70)   # Cajas
-        self.tabla.setColumnWidth(4, 70)   # Paquetes
         self.tabla.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.tabla.setSelectionBehavior(QTableWidget.SelectRows)
         self.tabla.setEditTriggers(QTableWidget.NoEditTriggers)
@@ -173,20 +170,16 @@ class VentasWindow(QMainWindow):
         self.cargar_todos_productos()
 
     def cargar_todos_productos(self):
-        """Carga productos mostrando columnas cajas y paquetes desde las tablas correspondientes."""
-        sql = """
-            SELECT nombre, codigo, precio, cajas, 0 as paquetes
-            FROM productos
-            WHERE cajas > 0
-            UNION ALL
-            
-            -- esta columna es de los paques --
-            
-            SELECT nombre, codigo, precio_paquete, 0 as cajas, paquetes_disponibles
-            FROM productos_paquetes
-            WHERE paquetes_disponibles > 0
-        """
-        self.cursor.execute(sql)
+        """Carga productos mostrando todas las columnas relevantes excepto acciones."""
+        self.cursor.execute("""
+            SELECT p.codigo, p.nombre, p.imagen, p.precio, p.cajas, p.paquetes,
+                   (p.cajas * p.paquetes_por_caja + p.paquetes) as paquetes_totales,
+                   p.unidades_por_paquete,
+                   (p.cajas * p.paquetes_por_caja * p.unidades_por_paquete + p.paquetes * p.unidades_por_paquete + p.unidades) as unidades_totales,
+                   p.fecha_venc, p.id_empleado
+            FROM productos p
+            ORDER BY p.nombre ASC
+        """)
         resultados = self.cursor.fetchall()
         self.mostrar_productos(resultados)
         self.spin_cantidad.setMaximum(1)
@@ -198,30 +191,57 @@ class VentasWindow(QMainWindow):
             self.cargar_todos_productos()
             return
         like = f"%{texto}%"
-        sql = """
+        # Buscar en productos
+        self.cursor.execute("""
             SELECT nombre, codigo, precio, cajas, 0 as paquetes
             FROM productos
             WHERE (nombre LIKE ? OR codigo LIKE ?)
-            UNION ALL
+        """, (like, like))
+        productos = self.cursor.fetchall()
+        # Buscar en productos_paquetes
+        self.cursor.execute("""
             SELECT nombre, codigo, precio_paquete, 0 as cajas, paquetes_disponibles
             FROM productos_paquetes
             WHERE (nombre LIKE ? OR codigo LIKE ?)
-        """
-        self.cursor.execute(sql, (like, like, like, like))
-        resultados = self.cursor.fetchall()
+        """, (like, like))
+        paquetes = self.cursor.fetchall()
+        resultados = productos + paquetes
         self.mostrar_productos(resultados)
 
     def mostrar_productos(self, resultados):
-        """Muestra los productos en la tabla principal con columnas cajas y paquetes."""
+        """Muestra los productos en la tabla principal con todas las columnas relevantes excepto acciones."""
         self.tabla.setRowCount(0)
         for row_num, row_data in enumerate(resultados):
-            nombre, codigo, precio, cajas, paquetes = row_data
+            (codigo, nombre, imagen, precio, cajas, paquetes, paquetes_totales,
+             unidades_por_paquete, unidades_totales, fecha_venc, id_empleado) = row_data
             self.tabla.insertRow(row_num)
-            self.tabla.setItem(row_num, 0, QTableWidgetItem(str(nombre)))
-            self.tabla.setItem(row_num, 1, QTableWidgetItem(str(codigo)))
-            self.tabla.setItem(row_num, 2, QTableWidgetItem(f"{precio:.2f} Bs."))
-            self.tabla.setItem(row_num, 3, QTableWidgetItem(str(cajas)))
-            self.tabla.setItem(row_num, 4, QTableWidgetItem(str(paquetes)))
+            self.tabla.setItem(row_num, 0, QTableWidgetItem(str(codigo)))
+            self.tabla.setItem(row_num, 1, QTableWidgetItem(str(nombre)))
+            # Imagen
+            img_item = QTableWidgetItem()
+            if imagen and os.path.exists(imagen):
+                from PyQt5.QtGui import QPixmap
+                pixmap = QPixmap(imagen).scaled(40, 40, Qt.KeepAspectRatio)
+                img_item.setData(Qt.DecorationRole, pixmap)
+            else:
+                img_item.setText("[img]")
+            self.tabla.setItem(row_num, 2, img_item)
+            self.tabla.setItem(row_num, 3, QTableWidgetItem(f"{precio:.2f} Bs."))
+            self.tabla.setItem(row_num, 4, QTableWidgetItem(str(cajas)))
+            self.tabla.setItem(row_num, 5, QTableWidgetItem(str(paquetes)))
+            self.tabla.setItem(row_num, 6, QTableWidgetItem(str(paquetes_totales)))
+            self.tabla.setItem(row_num, 7, QTableWidgetItem(str(unidades_por_paquete)))
+            self.tabla.setItem(row_num, 8, QTableWidgetItem(str(unidades_totales)))
+            # Fecha vencimiento
+            if fecha_venc:
+                try:
+                    fecha = datetime.fromtimestamp(int(fecha_venc)).strftime("%Y-%m-%d")
+                except Exception:
+                    fecha = str(fecha_venc)
+                self.tabla.setItem(row_num, 9, QTableWidgetItem(fecha))
+            else:
+                self.tabla.setItem(row_num, 9, QTableWidgetItem(""))
+            self.tabla.setItem(row_num, 10, QTableWidgetItem(str(id_empleado)))
         self.tabla.resizeColumnsToContents()
         self.spin_cantidad.setMaximum(1)
 
