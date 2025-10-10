@@ -77,9 +77,9 @@ class VentasWindow(QMainWindow):
 
         # Tabla de productos
         self.tabla = QTableWidget()
-        self.tabla.setColumnCount(11)
+        self.tabla.setColumnCount(10)
         self.tabla.setHorizontalHeaderLabels([
-            "Código", "Nombre", "Imagen", "Precio", "Cajas", "Paquetes",
+            "Nombre", "Imagen", "Precio", "Cajas", "Paquetes",
             "Paquetes Totales", "Unidades por Paquete", "Unidades Totales",
             "Fecha Venc.", "Empleado"
         ])
@@ -170,9 +170,9 @@ class VentasWindow(QMainWindow):
         self.cargar_todos_productos()
 
     def cargar_todos_productos(self):
-        """Carga productos mostrando todas las columnas relevantes excepto acciones."""
+        """Carga productos mostrando todas las columnas relevantes excepto acciones y código."""
         self.cursor.execute("""
-            SELECT p.codigo, p.nombre, p.imagen, p.precio, p.cajas, p.paquetes,
+            SELECT p.nombre, p.imagen, p.precio, p.cajas, p.paquetes,
                    (p.cajas * p.paquetes_por_caja + p.paquetes) as paquetes_totales,
                    p.unidades_por_paquete,
                    (p.cajas * p.paquetes_por_caja * p.unidades_por_paquete + p.paquetes * p.unidades_por_paquete + p.unidades) as unidades_totales,
@@ -209,14 +209,13 @@ class VentasWindow(QMainWindow):
         self.mostrar_productos(resultados)
 
     def mostrar_productos(self, resultados):
-        """Muestra los productos en la tabla principal con todas las columnas relevantes excepto acciones."""
+        """Muestra los productos en la tabla principal sin la columna código."""
         self.tabla.setRowCount(0)
         for row_num, row_data in enumerate(resultados):
-            (codigo, nombre, imagen, precio, cajas, paquetes, paquetes_totales,
+            (nombre, imagen, precio, cajas, paquetes, paquetes_totales,
              unidades_por_paquete, unidades_totales, fecha_venc, id_empleado) = row_data
             self.tabla.insertRow(row_num)
-            self.tabla.setItem(row_num, 0, QTableWidgetItem(str(codigo)))
-            self.tabla.setItem(row_num, 1, QTableWidgetItem(str(nombre)))
+            self.tabla.setItem(row_num, 0, QTableWidgetItem(str(nombre)))
             # Imagen
             img_item = QTableWidgetItem()
             if imagen and os.path.exists(imagen):
@@ -225,23 +224,23 @@ class VentasWindow(QMainWindow):
                 img_item.setData(Qt.DecorationRole, pixmap)
             else:
                 img_item.setText("[img]")
-            self.tabla.setItem(row_num, 2, img_item)
-            self.tabla.setItem(row_num, 3, QTableWidgetItem(f"{precio:.2f} Bs."))
-            self.tabla.setItem(row_num, 4, QTableWidgetItem(str(cajas)))
-            self.tabla.setItem(row_num, 5, QTableWidgetItem(str(paquetes)))
-            self.tabla.setItem(row_num, 6, QTableWidgetItem(str(paquetes_totales)))
-            self.tabla.setItem(row_num, 7, QTableWidgetItem(str(unidades_por_paquete)))
-            self.tabla.setItem(row_num, 8, QTableWidgetItem(str(unidades_totales)))
+            self.tabla.setItem(row_num, 1, img_item)
+            self.tabla.setItem(row_num, 2, QTableWidgetItem(f"{precio:.2f} Bs."))
+            self.tabla.setItem(row_num, 3, QTableWidgetItem(str(cajas)))
+            self.tabla.setItem(row_num, 4, QTableWidgetItem(str(paquetes)))
+            self.tabla.setItem(row_num, 5, QTableWidgetItem(str(paquetes_totales)))
+            self.tabla.setItem(row_num, 6, QTableWidgetItem(str(unidades_por_paquete)))
+            self.tabla.setItem(row_num, 7, QTableWidgetItem(str(unidades_totales)))
             # Fecha vencimiento
             if fecha_venc:
                 try:
                     fecha = datetime.fromtimestamp(int(fecha_venc)).strftime("%Y-%m-%d")
                 except Exception:
                     fecha = str(fecha_venc)
-                self.tabla.setItem(row_num, 9, QTableWidgetItem(fecha))
+                self.tabla.setItem(row_num, 8, QTableWidgetItem(fecha))
             else:
-                self.tabla.setItem(row_num, 9, QTableWidgetItem(""))
-            self.tabla.setItem(row_num, 10, QTableWidgetItem(str(id_empleado)))
+                self.tabla.setItem(row_num, 8, QTableWidgetItem(""))
+            self.tabla.setItem(row_num, 9, QTableWidgetItem(str(id_empleado)))
         self.tabla.resizeColumnsToContents()
         self.spin_cantidad.setMaximum(1)
 

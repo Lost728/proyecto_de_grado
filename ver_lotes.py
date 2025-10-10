@@ -10,8 +10,6 @@ from PyQt5.QtCore import Qt
 from datetime import datetime
 import subprocess
 
-# ----------------- Funciones de Utilidad -----------------
-
 def obtener_db_path():
     """Retorna la ruta de la base de datos 'pruebas.db'."""
     if getattr(sys, 'frozen', False):

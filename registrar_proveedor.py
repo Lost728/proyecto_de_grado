@@ -8,8 +8,6 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtCore import Qt
 import subprocess
 
-# ----------------- Funciones de Utilidad -----------------
-
 def obtener_db_path():
     """Retorna la ruta de la base de datos 'pruebas.db'."""
     if getattr(sys, 'frozen', False):

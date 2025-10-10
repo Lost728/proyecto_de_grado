@@ -8,7 +8,7 @@ from PyQt5.QtWidgets import (
     QHBoxLayout, QComboBox, QDateEdit, QMessageBox, QGroupBox, QGridLayout,
     QSplitter, QScrollArea, QFrame, QTableWidgetItem
 )
-from PyQt5.QtCore import Qt, QDate, QTimer
+from PyQt5.QtCore import Qt, QDate, QTimer 
 from PyQt5.QtGui import QFont, QPalette, QColor
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure

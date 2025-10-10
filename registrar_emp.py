@@ -12,8 +12,6 @@ import bcrypt
 import subprocess
 import pathlib
 
-# ----------------- CÓDIGO CORREGIDO -----------------
-
 def obtener_db_path():
     if getattr(sys, 'frozen', False):
         exe_dir = os.path.dirname(sys.executable)
