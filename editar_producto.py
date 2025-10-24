@@ -113,8 +113,7 @@ class ModificarProductoWindow(QMainWindow):
             ("codigo", "Código"),
             ("imagen", "Imagen"),
             ("precio", "Precio"),
-            ("cajas", "Cajas"),
-            ("paquetes", "Paquetes"),
+            ("unidades", "Unidades"),
             ("fecha_venc", "Fecha de Vencimiento"),
         ]
        
@@ -193,7 +192,7 @@ class ModificarProductoWindow(QMainWindow):
             conn = sqlite3.connect(db_path)
             cursor = conn.cursor()
             cursor.execute("""
-                SELECT p.id_producto, p.codigo, p.imagen, p.nombre, p.precio, p.cajas, p.paquetes, p.fecha_venc, p.id_empleado, IFNULL(e.nombre, 'Sin asignar')
+                SELECT p.id_producto, p.codigo, p.imagen, p.nombre, p.precio, p.unidades, p.fecha_venc, p.id_empleado, IFNULL(e.nombre, 'Sin asignar')
                 FROM productos p
                 LEFT JOIN empleado e ON p.id_empleado = e.id_empleado
                 WHERE p.id_producto = ?
@@ -202,13 +201,12 @@ class ModificarProductoWindow(QMainWindow):
             conn.close()
 
             if producto:
-                (id_producto, codigo, imagen, nombre, precio, cajas, paquetes, fecha_venc, id_empleado, nombre_empleado) = producto
+                (id_producto, codigo, imagen, nombre, precio, unidades, fecha_venc, id_empleado, nombre_empleado) = producto
                 self.inputs["codigo"].setText(str(codigo))
                 self.inputs["imagen"].setText(str(imagen))
                 self.inputs["nombre"].setText(str(nombre))
                 self.inputs["precio"].setText(str(precio))
-                self.inputs["cajas"].setText(str(cajas))
-                self.inputs["paquetes"].setText(str(paquetes))
+                self.inputs["unidades"].setText(str(unidades))
                 
                 # Si fecha_venc es tipo 'YYYYMMDD' (ejemplo: 20250811)
                 fecha_str = str(fecha_venc)
@@ -258,10 +256,9 @@ class ModificarProductoWindow(QMainWindow):
             
             try:
                 datos["precio"] = float(datos["precio"])
-                datos["cajas"] = int(datos["cajas"])
-                datos["paquetes"] = int(datos["paquetes"])
+                datos["unidades"] = int(datos["unidades"])
             except Exception as e:
-                QMessageBox.warning(self, "⚠️ Error de validación", "Precio, cajas y paquetes deben ser números.")
+                QMessageBox.warning(self, "⚠️ Error de validación", "Precio y unidades deben ser números.")
                 return
 
             # Convierte la fecha a formato timestamp INTEGER
@@ -275,15 +272,14 @@ class ModificarProductoWindow(QMainWindow):
             cursor.execute("""
                 UPDATE productos SET
                     codigo = ?, imagen = ?, nombre = ?, precio = ?,
-                    cajas = ?, paquetes = ?, fecha_venc = ?, id_empleado = ?
+                    unidades = ?, fecha_venc = ?, id_empleado = ?
                 WHERE id_producto = ?
             """, (
                 datos["codigo"],
                 datos["imagen"],
                 datos["nombre"],
                 datos["precio"],
-                datos["cajas"],
-                datos["paquetes"],
+                datos["unidades"],
                 fecha_venc_timestamp,
                 self.combo_empleado.currentData(),
                 self.producto_id

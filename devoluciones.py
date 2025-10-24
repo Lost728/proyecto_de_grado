@@ -4,11 +4,11 @@ from datetime import datetime
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QLabel, QLineEdit, QPushButton, QTableWidget, QTableWidgetItem,
-    QMessageBox, QComboBox, QSpinBox, QTextEdit, QHeaderView
+    QMessageBox, QComboBox, QSpinBox, QTextEdit, QHeaderView, QFormLayout
 )
 from PyQt5.QtCore import Qt
 
-DB_PATH = "pruebas.db"  # Cambia si tu base de datos tiene otro nombre
+DB_PATH = "pruebas.db"
 
 class DevolucionesWindow(QMainWindow):
     def __init__(self):
@@ -25,34 +25,33 @@ class DevolucionesWindow(QMainWindow):
         main_layout = QVBoxLayout(central)
 
         # Formulario de devolución
-        form_layout = QHBoxLayout()
-        self.producto_combo = QComboBox()
-        self._load_productos()
-        form_layout.addWidget(QLabel("Producto:"))
-        form_layout.addWidget(self.producto_combo)
-
-        self.cantidad_spin = QSpinBox()
-        self.cantidad_spin.setMinimum(1)
-        self.cantidad_spin.setMaximum(1000)
-        form_layout.addWidget(QLabel("Cantidad:"))
-        form_layout.addWidget(self.cantidad_spin)
-
-        self.motivo_text = QTextEdit()
-        self.motivo_text.setPlaceholderText("Motivo de la devolución")
-        self.motivo_text.setFixedHeight(40)
-        form_layout.addWidget(QLabel("Motivo:"))
-        form_layout.addWidget(self.motivo_text)
-
-        self.empleado_combo = QComboBox()
-        self._load_empleados()
-        form_layout.addWidget(QLabel("Empleado:"))
-        form_layout.addWidget(self.empleado_combo)
-
-        btn_devolver = QPushButton("Registrar Devolución")
-        btn_devolver.clicked.connect(self.registrar_devolucion)
-        form_layout.addWidget(btn_devolver)
-
-        main_layout.addLayout(form_layout)
+        self.form_layout = QFormLayout()
+        # Selección de producto
+        self.combo_producto = QComboBox()
+        productos = self.obtener_productos()
+        for id_prod, nombre in productos:
+            self.combo_producto.addItem(f"{nombre} [ID: {id_prod}]", id_prod)
+        self.form_layout.addRow("Producto:", self.combo_producto)
+        # Cantidad
+        self.spin_cantidad = QSpinBox()
+        self.spin_cantidad.setMinimum(1)
+        self.spin_cantidad.setMaximum(1000)
+        self.form_layout.addRow("Cantidad:", self.spin_cantidad)
+        # Motivo
+        self.input_motivo = QTextEdit()
+        self.input_motivo.setPlaceholderText("Motivo de la devolución")
+        self.form_layout.addRow("Motivo:", self.input_motivo)
+        # Empleado
+        self.combo_empleado = QComboBox()
+        empleados = self.obtener_empleados()
+        for id_emp, nombre in empleados:
+            self.combo_empleado.addItem(f"{nombre} [ID: {id_emp}]", id_emp)
+        self.form_layout.addRow("Empleado:", self.combo_empleado)
+        # Botón registrar
+        self.btn_registrar = QPushButton("Registrar devolución")
+        self.btn_registrar.clicked.connect(self.registrar_devolucion)
+        self.form_layout.addRow(self.btn_registrar)
+        self.setLayout(self.form_layout)
 
         # Tabla de devoluciones
         self.tabla = QTableWidget()
@@ -71,39 +70,33 @@ class DevolucionesWindow(QMainWindow):
 
         self.setCentralWidget(central)
 
-    def _load_productos(self):
-        self.producto_combo.clear()
+    def obtener_productos(self):
         self.cursor.execute("SELECT id_producto, nombre FROM productos")
-        for id_producto, nombre in self.cursor.fetchall():
-            self.producto_combo.addItem(f"{nombre} (ID:{id_producto})", id_producto)
+        return self.cursor.fetchall()
 
-    def _load_empleados(self):
-        self.empleado_combo.clear()
+    def obtener_empleados(self):
         self.cursor.execute("SELECT id_empleado, nombre FROM empleado")
-        for id_empleado, nombre in self.cursor.fetchall():
-            self.empleado_combo.addItem(f"{nombre} (ID:{id_empleado})", id_empleado)
+        return self.cursor.fetchall()
 
     def registrar_devolucion(self):
-        id_producto = self.producto_combo.currentData()
-        cantidad = self.cantidad_spin.value()
-        motivo = self.motivo_text.toPlainText().strip()
-        id_empleado = self.empleado_combo.currentData()
-        fecha = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
+        id_producto = self.combo_producto.currentData()
+        cantidad = self.spin_cantidad.value()
+        motivo = self.input_motivo.toPlainText().strip()
+        fecha_devolucion = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        id_empleado = self.combo_empleado.currentData()
         if not motivo:
-            QMessageBox.warning(self, "Motivo requerido", "Debe ingresar el motivo de la devolución.")
+            QMessageBox.warning(self, "Error", "Debe ingresar el motivo de la devolución.")
             return
-
         try:
             self.cursor.execute(
                 "INSERT INTO devoluciones (id_producto, cantidad, motivo, fecha_devolucion, id_empleado) VALUES (?, ?, ?, ?, ?)",
-                (id_producto, cantidad, motivo, fecha, id_empleado)
+                (id_producto, cantidad, motivo, fecha_devolucion, id_empleado)
             )
             self.conn.commit()
-            QMessageBox.information(self, "Devolución registrada", "La devolución se registró correctamente.")
+            QMessageBox.information(self, "Registro exitoso", "La devolución ha sido registrada correctamente.")
             self._load_devoluciones()
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"No se pudo registrar la devolución:\n{e}")
+            QMessageBox.critical(self, "Error", f"No se pudo registrar la devolución: {str(e)}")
 
     def _load_devoluciones(self):
         self.tabla.setRowCount(0)
@@ -114,10 +107,32 @@ class DevolucionesWindow(QMainWindow):
             JOIN empleado e ON d.id_empleado = e.id_empleado
             ORDER BY d.fecha_devolucion DESC
         """)
-        for row_num, row_data in enumerate(self.cursor.fetchall()):
+        devoluciones = self.cursor.fetchall()
+        for row_num, row_data in enumerate(devoluciones):
             self.tabla.insertRow(row_num)
             for col_num, data in enumerate(row_data):
                 self.tabla.setItem(row_num, col_num, QTableWidgetItem(str(data)))
+            # Botón reintegrar
+            btn_reintegrar = QPushButton("Reintegrar")
+            btn_reintegrar.setStyleSheet("background-color: #0984e3; color: white; font-size: 13px;")
+            btn_reintegrar.clicked.connect(lambda _, id_dev=row_data[0], cant=row_data[2], prod=row_data[1]: self.reintegrar_devolucion(id_dev, cant, prod))
+            self.tabla.setCellWidget(row_num, self.tabla.columnCount()-1, btn_reintegrar)
+
+    def reintegrar_devolucion(self, id_devolucion, cantidad, nombre_producto):
+        """Reintegra la devolución seleccionada al inventario."""
+        # Buscar el id_producto
+        self.cursor.execute("SELECT id_producto FROM devoluciones WHERE id_devolucion = ?", (id_devolucion,))
+        row = self.cursor.fetchone()
+        if not row:
+            QMessageBox.warning(self, "Error", "No se encontró el producto para reintegrar.")
+            return
+        id_producto = row[0]
+        # Actualizar inventario y marcar devolución como reintegrada
+        self.cursor.execute("UPDATE productos SET unidades = unidades + ? WHERE id_producto = ?", (cantidad, id_producto))
+        self.cursor.execute("UPDATE devoluciones SET reintegrado = 1 WHERE id_devolucion = ?", (id_devolucion,))
+        self.conn.commit()
+        QMessageBox.information(self, "Reintegrado", f"La devolución de '{nombre_producto}' ha sido reintegrada al inventario.")
+        self._load_devoluciones()
 
     def ir_menu_principal(self):
         import os, subprocess

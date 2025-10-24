@@ -1,7 +1,7 @@
 import sys
 from PyQt5.QtWidgets import (
-    QApplication, QMainWindow, QVBoxLayout, QHBoxLayout, QLabel, 
-    QLineEdit, QPushButton, QMessageBox, QWidget, QComboBox
+    QApplication, QMainWindow, QVBoxLayout, QHBoxLayout, QGridLayout, QLabel, 
+    QLineEdit, QPushButton, QMessageBox, QWidget, QComboBox, QGraphicsBlurEffect
 )
 from PyQt5.QtCore import Qt
 import sqlite3
@@ -31,61 +31,112 @@ class InsertarEmpleadoWindow(QMainWindow):
         self.setWindowTitle("Insertar Nuevo Empleado")
         self.setGeometry(100, 100, 600, 400)
 
+        # Fondo decorativo (image4.jpg)
+        fondo = os.path.abspath(os.path.join(os.path.dirname(__file__), 'image4.jpg'))
+        if os.path.exists(fondo):
+            from PyQt5.QtGui import QPixmap
+            self._bg_pixmap = QPixmap(fondo)
+            self.bg_label = QLabel(self)
+            self.bg_label.setScaledContents(True)
+            blur = QGraphicsBlurEffect(self.bg_label)
+            blur.setBlurRadius(12)
+            self.bg_label.setGraphicsEffect(blur)
+            self.bg_label.setAttribute(Qt.WA_TransparentForMouseEvents)
+            self.bg_label.lower()
+
+        # Estilos base
+        self.setStyleSheet("""
+            QWidget { background: transparent; color: #ffffff; font-family: Arial; }
+            QLabel { font-weight: bold; color: #ffffff; }
+            QLineEdit { background: rgba(0,0,0,0.35); color: #ffffff; border-radius: 8px; padding: 6px; }
+            QPushButton { color: #22223b; font-weight: 700; }
+        """)
+
         main_widget = QWidget()
         main_layout = QVBoxLayout()
+        main_layout.setContentsMargins(20,20,20,20)
+        main_layout.setSpacing(10)
         main_widget.setLayout(main_layout)
+        main_widget.setAttribute(Qt.WA_TranslucentBackground)
         self.setCentralWidget(main_widget)
 
         title = QLabel("Insertar Nuevo Empleado")
-        title.setStyleSheet("font-size: 18px; font-weight: bold; margin-bottom: 10px;")
+        title.setObjectName("title")
+        title.setStyleSheet("font-size: 20px; font-weight: bold; color: #ffffff; padding-bottom: 8px;")
         title.setAlignment(Qt.AlignCenter)
         main_layout.addWidget(title)
 
+        # Top buttons (volver + menu) en una fila
+        top_btns = QHBoxLayout()
         btn_volver = QPushButton("Volver")
-        btn_volver.setStyleSheet("background-color: #1976d2; color: white; font-weight: bold; padding: 8px 15px; border-radius: 5px;")
+        btn_volver.setStyleSheet("background: rgba(255,255,255,0.06); color:#ffffff; border-radius:8px; padding:8px 14px; border:1px solid rgba(255,255,255,0.06);")
         btn_volver.clicked.connect(self.volver_a_ver_empleado)
-        main_layout.addWidget(btn_volver, alignment=Qt.AlignLeft)
-        
         btn_menu = QPushButton("Menú Principal")
-        btn_menu.setStyleSheet("background-color: #1976d2; color: white; font-weight: bold; padding: 8px 15px; border-radius: 5px;")
+        btn_menu.setStyleSheet("background: qlineargradient(x1:0,y1:0,x2:1,y2:0, stop:0 #7ed6fa, stop:1 #ffb6e6); color:#22223b; border-radius:8px; padding:8px 14px; font-weight:700;")
         btn_menu.clicked.connect(self.menu_principal)
-        main_layout.addWidget(btn_menu, alignment=Qt.AlignLeft)
+        top_btns.addWidget(btn_volver)
+        top_btns.addStretch(1)
+        top_btns.addWidget(btn_menu)
+        main_layout.addLayout(top_btns)
 
-        form_layout = QVBoxLayout()
+        # Formulario en grid (etiquetas | campos)
+        form_grid = QGridLayout()
+        form_grid.setHorizontalSpacing(18)
+        form_grid.setVerticalSpacing(10)
+        row = 0
         self.campos = {}
-
-        self.campos["nombre"] = self.crear_campo("Nombre:", QLineEdit(), form_layout)
-        # Nuevo campo para apellidos
-        self.campos["apellidos"] = self.crear_campo("Apellidos:", QLineEdit(), form_layout)
-        self.campos["ci"] = self.crear_campo("CI:", QLineEdit(), form_layout)
-        self.campos["celular"] = self.crear_campo("Celular:", QLineEdit(), form_layout)
-
-        label_rol = QLabel("Rol:")
+        self.campos["nombre"] = QLineEdit()
+        form_grid.addWidget(QLabel("Nombre:"), row, 0)
+        form_grid.addWidget(self.campos["nombre"], row, 1)
+        row += 1
+        self.campos["apellidos"] = QLineEdit()
+        form_grid.addWidget(QLabel("Apellidos:"), row, 0)
+        form_grid.addWidget(self.campos["apellidos"], row, 1)
+        row += 1
+        self.campos["ci"] = QLineEdit()
+        form_grid.addWidget(QLabel("CI:"), row, 0)
+        form_grid.addWidget(self.campos["ci"], row, 1)
+        row += 1
+        self.campos["celular"] = QLineEdit()
+        form_grid.addWidget(QLabel("Celular:"), row, 0)
+        form_grid.addWidget(self.campos["celular"], row, 1)
+        row += 1
+        # Rol combo
         combo_rol = QComboBox()
         combo_rol.addItems(["administrador", "empleado"])
-        form_layout.addWidget(label_rol)
-        form_layout.addWidget(combo_rol)
+        form_grid.addWidget(QLabel("Rol:"), row, 0)
+        form_grid.addWidget(combo_rol, row, 1)
         self.campos["rol"] = combo_rol
-
-        # Contraseña y Confirmar Contraseña
-        self.campos["contrasena_hash"] = self.crear_campo("Contraseña:", QLineEdit(), form_layout)
+        row += 1
+        # Contraseñas
+        self.campos["contrasena_hash"] = QLineEdit()
         self.campos["contrasena_hash"].setEchoMode(QLineEdit.Password)
-        self.campos["confirmar_contrasena"] = self.crear_campo("Confirmar Contraseña:", QLineEdit(), form_layout)
+        form_grid.addWidget(QLabel("Contraseña:"), row, 0)
+        form_grid.addWidget(self.campos["contrasena_hash"], row, 1)
+        row += 1
+        self.campos["confirmar_contrasena"] = QLineEdit()
         self.campos["confirmar_contrasena"].setEchoMode(QLineEdit.Password)
+        form_grid.addWidget(QLabel("Confirmar Contraseña:"), row, 0)
+        form_grid.addWidget(self.campos["confirmar_contrasena"], row, 1)
+        row += 1
 
+        # Botones de acción (centrados, justo después del formulario)
         buttons_layout = QHBoxLayout()
         btn_guardar = QPushButton("Guardar")
-        btn_guardar.setStyleSheet("background-color: #388e3c; color: white; font-weight: bold; padding: 10px 20px; border-radius: 5px;")
+        btn_guardar.setStyleSheet("background: qlineargradient(x1:0,y1:0,x2:1,y2:0, stop:0 #7ed6fa, stop:1 #ffb6e6); color:#22223b; border-radius:10px; padding:8px 16px; font-weight:700;")
         btn_guardar.clicked.connect(self.guardar_empleado)
         buttons_layout.addWidget(btn_guardar)
-
         btn_limpiar = QPushButton("Limpiar")
-        btn_limpiar.setStyleSheet("background-color: #FFA500; color: white; font-weight: bold; padding: 10px 20px; border-radius: 5px;")
+        btn_limpiar.setStyleSheet("background: rgba(255,255,255,0.06); color:#ffffff; border-radius:10px; padding:8px 16px; border:1px solid rgba(255,255,255,0.06);")
         btn_limpiar.clicked.connect(self.limpiar_formulario)
         buttons_layout.addWidget(btn_limpiar)
 
-        form_layout.addLayout(buttons_layout)
-        main_layout.addLayout(form_layout)
+        # Agregar grid y botones al layout principal
+        form_container = QWidget()
+        form_container.setLayout(form_grid)
+        main_layout.addWidget(form_container)
+        main_layout.addLayout(buttons_layout)
+        main_layout.addStretch(1)
 
         self.campos["ci"].setPlaceholderText("Ejemplo: 12345678")
 
@@ -183,6 +234,17 @@ class InsertarEmpleadoWindow(QMainWindow):
             self.close()
         except Exception as e:
             QMessageBox.critical(self, "Error", f"No se pudo abrir la ventana de búsqueda:\n{e}")
+
+    def resizeEvent(self, event):
+        try:
+            if hasattr(self, '_bg_pixmap') and self._bg_pixmap and hasattr(self, 'bg_label'):
+                scaled = self._bg_pixmap.scaled(self.size(), Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation)
+                self.bg_label.setPixmap(scaled)
+                self.bg_label.resize(self.size())
+                self.bg_label.lower()
+        except Exception:
+            pass
+        return super().resizeEvent(event)
 
 def abrir_aplicacion(nombre_py):
     rutas = []

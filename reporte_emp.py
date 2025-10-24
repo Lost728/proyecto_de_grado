@@ -58,8 +58,8 @@ class ReporteEmpleados(QWidget):
 
         # Tabla de Activos
         self.tabla_activos = QTableWidget()
-        self.tabla_activos.setColumnCount(6)
-        self.tabla_activos.setHorizontalHeaderLabels(["CI", "Nombre", "Celular", "Rol", "Estado", "Fecha"])
+        self.tabla_activos.setColumnCount(8)
+        self.tabla_activos.setHorizontalHeaderLabels(["CI", "Nombre", "Celular", "Rol", "Estado", "Fecha", "Historial", "Registrar evento"])
         self.tabla_activos.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.tabla_activos.setAlternatingRowColors(True)
         layout_activos = QVBoxLayout()
@@ -118,6 +118,87 @@ class ReporteEmpleados(QWidget):
             estado_item.setForeground(Qt.green)
             self.tabla_activos.setItem(row_num, 4, estado_item)
             self.tabla_activos.setItem(row_num, 5, QTableWidgetItem(self.formatear_fecha(fecha)))
+            # Botón Historial
+            btn_historial = QPushButton("Historial")
+            btn_historial.clicked.connect(lambda _, ci=ci: self.ver_historial_empleado(ci))
+            self.tabla_activos.setCellWidget(row_num, 6, btn_historial)
+            # Botón Registrar evento
+            btn_evento = QPushButton("Registrar evento")
+            btn_evento.clicked.connect(lambda _, ci=ci: self.registrar_evento_empleado(ci))
+            self.tabla_activos.setCellWidget(row_num, 7, btn_evento)
+    def ver_historial_empleado(self, ci_empleado):
+        from PyQt5.QtWidgets import QDialog
+        dialog = QDialog(self)
+        dialog.setWindowTitle(f"Historial de CI: {ci_empleado}")
+        layout = QVBoxLayout(dialog)
+        tabla = QTableWidget()
+        tabla.setEditTriggers(QTableWidget.NoEditTriggers)
+        tabla.setColumnCount(9)
+        tabla.setHorizontalHeaderLabels([
+            "CI", "Nombre", "Apellido", "Celular", "Estado", "Tipo evento", "Motivo", "Fecha", "Observaciones"
+        ])
+        tabla.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        # Estado actual del empleado
+        cursor.execute("SELECT 1 FROM empleado WHERE ci = ?", (ci_empleado,))
+        activo = cursor.fetchone() is not None
+        # Verificar vacaciones vigentes
+        cursor.execute("""
+            SELECT fecha_evento, observaciones FROM historial_empleado
+            WHERE ci_empleado = ? AND tipo_evento = 'vacaciones' ORDER BY fecha_evento DESC LIMIT 1
+        """, (ci_empleado,))
+        vacacion = cursor.fetchone()
+        in_vacaciones = False
+        import time
+        if activo and vacacion:
+            try:
+                dias = int(str(vacacion[1]).split()[0])
+                inicio = int(vacacion[0])
+                ahora = int(time.time())
+                if dias > 0 and ahora < inicio + dias * 86400:
+                    in_vacaciones = True
+            except:
+                pass
+        # Historial
+        cursor.execute("""
+            SELECT ci_empleado, nombre, apellido, celular, tipo_evento, motivo, fecha_evento, observaciones
+            FROM historial_empleado WHERE ci_empleado = ? ORDER BY fecha_evento DESC
+        """, (ci_empleado,))
+        historial = cursor.fetchall()
+        conn.close()
+        tabla.setRowCount(len(historial))
+        for row, datos in enumerate(historial):
+            # Estado
+            if not activo:
+                estado = QTableWidgetItem("� Inactivo")
+                estado.setForeground(Qt.red)
+            elif in_vacaciones:
+                estado = QTableWidgetItem("� Inactivo (Vacaciones)")
+                estado.setForeground(Qt.darkYellow)
+            else:
+                estado = QTableWidgetItem("🟢 Activo")
+                estado.setForeground(Qt.green)
+            tabla.setItem(row, 4, estado)
+            for col, valor in enumerate(datos):
+                col_offset = col if col < 4 else col + 1  # Saltar columna estado
+                if col == 6:  # fecha_evento
+                    try:
+                        valor = datetime.fromtimestamp(int(valor)).strftime("%Y-%m-%d")
+                    except:
+                        valor = str(valor)
+                tabla.setItem(row, col_offset, QTableWidgetItem(str(valor)))
+        layout.addWidget(tabla)
+        btn_cerrar = QPushButton("Cerrar")
+        btn_cerrar.clicked.connect(dialog.accept)
+        layout.addWidget(btn_cerrar)
+        dialog.setLayout(layout)
+        dialog.resize(900, 400)
+        dialog.exec_()
+
+    def registrar_evento_empleado(self, ci_empleado):
+        # Aquí se abrirá una ventana para registrar un evento (vacación, baja, despido)
+        QMessageBox.information(self, "Registrar evento", f"Aquí se podrá registrar un evento para el empleado CI: {ci_empleado}")
 
     def cargar_empleados_eliminados(self, filtro=""):
         self.tabla_eliminados.setRowCount(0)

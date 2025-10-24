@@ -2,8 +2,8 @@ import sys
 import os
 import shutil
 from PyQt5.QtWidgets import (
-    QApplication, QMainWindow, QVBoxLayout, QHBoxLayout, QLabel, 
-    QLineEdit, QPushButton, QMessageBox, QDateEdit, QWidget, QComboBox, QFileDialog
+    QApplication, QMainWindow, QVBoxLayout, QHBoxLayout, QGridLayout, QLabel, 
+    QLineEdit, QPushButton, QMessageBox, QDateEdit, QWidget, QComboBox, QFileDialog, QGraphicsBlurEffect
 )
 from PyQt5.QtCore import Qt, QDate
 import sqlite3
@@ -21,7 +21,6 @@ def obtener_db_path():
         base_path = sys._MEIPASS
         return os.path.join(base_path, "pruebas.db")
     else:
-        # CORRECCIÓN: Usar la base de datos pruebas.db
         return os.path.abspath(os.path.join(os.path.dirname(__file__), "pruebas.db"))
 
 db_path = obtener_db_path()
@@ -60,12 +59,27 @@ class InsertarProductoWindow(QMainWindow):
         self.setWindowTitle("Registrar Nuevo Producto")
         self.setGeometry(100, 100, 600, 400)
 
+        # Fondo decorativo (image3.jpg)
+        fondo = os.path.abspath(os.path.join(os.path.dirname(__file__), 'image3.jpg'))
+        if os.path.exists(fondo):
+            from PyQt5.QtGui import QPixmap
+            self._bg_pixmap = QPixmap(fondo)
+            self.bg_label = QLabel(self)
+            self.bg_label.setScaledContents(True)
+            blur = QGraphicsBlurEffect(self.bg_label)
+            blur.setBlurRadius(12)
+            self.bg_label.setGraphicsEffect(blur)
+            self.bg_label.setAttribute(Qt.WA_TransparentForMouseEvents)
+            self.bg_label.lower()
+
+        # Hoja de estilos adaptada a la paleta (púrpura / rosa / celeste)
         self.setStyleSheet("""
-            QWidget { background-color: #f0f0f0; font-family: Arial; font-size: 13px; }
-            QLabel { font-weight: bold; margin-bottom: 3px; }
-            QLineEdit, QDateEdit { padding: 5px; border: 1px solid #aaa; border-radius: 4px; margin-bottom: 10px; }
-            QPushButton { padding: 8px 15px; border-radius: 5px; min-width: 80px; }
-            #title { font-size: 18px; font-weight: bold; background-color: #e0e0e0; padding: 10px; text-align: center; }
+            QWidget { background: transparent; font-family: Arial; font-size: 13px; color: #ffffff; }
+            QLabel { font-weight: bold; color: #ffffff; }
+            QLineEdit, QDateEdit { padding: 8px; border-radius: 8px; background: rgba(0,0,0,0.35); color: #ffffff; }
+            QComboBox { padding: 8px; border-radius: 8px; background: rgba(0,0,0,0.35); color: #ffffff; }
+            QPushButton { padding: 8px 15px; border-radius: 10px; color: #22223b; font-weight: 700; }
+            #title { font-size: 20px; font-weight: bold; color: #ffffff; padding: 12px; text-align: center; }
         """)
 
         main_widget = QWidget()
@@ -77,27 +91,48 @@ class InsertarProductoWindow(QMainWindow):
         title.setObjectName("title")
         main_layout.addWidget(title)
 
-        form_layout = QVBoxLayout()
-        form_layout.setContentsMargins(30, 20, 30, 20)
+        # Usar una cuadrícula para el formulario (2 columnas)
+        form_grid = QGridLayout()
+        form_grid.setContentsMargins(30, 20, 30, 20)
+        form_grid.setHorizontalSpacing(20)
+        form_grid.setVerticalSpacing(12)
 
         # Campo para seleccionar el empleado que registra el producto
         self.combo_empleado = QComboBox()
         self.cargar_empleados()
-        form_layout.addWidget(QLabel("Empleado que registra:"))
-        form_layout.addWidget(self.combo_empleado)
+        form_grid.addWidget(QLabel("Empleado que registra:"), 0, 0)
+        form_grid.addWidget(self.combo_empleado, 0, 1)
 
-        # Solo los campos requeridos
-        self.campos = {
-            "nombre": self.crear_campo("Nombre del Producto:", QLineEdit(), form_layout),
-            "codigo": self.crear_campo("Código:", QLineEdit(), form_layout),
-            "imagen": QLineEdit(),
-            "precio": self.crear_campo("Precio (Bs.):", QLineEdit(), form_layout),
-            "fecha_vencimiento": self.crear_campo("Fecha de Vencimiento:", QDateEdit(), form_layout),
-            "cajas": self.crear_campo("Cajas:", QLineEdit(), form_layout),
-            "paquetes_por_caja": self.crear_campo("Paquetes por caja:", QLineEdit(), form_layout),
-            "unidades_por_paquete": self.crear_campo("Unidades por paquete:", QLineEdit(), form_layout),
-            "unidades": self.crear_campo("Unidades sueltas:", QLineEdit(), form_layout)
-        }
+        # Solo los campos requeridos - crear en filas (fila 1..n)
+        row = 1
+        self.campos = {}
+        self.campos["nombre"] = self.crear_campo("Nombre del Producto:", QLineEdit(), form_grid, row); row += 1
+        self.campos["codigo"] = self.crear_campo("Código:", QLineEdit(), form_grid, row); row += 1
+        # imagen será un QLineEdit manejado aparte
+        self.campos["imagen"] = QLineEdit()
+        self.campos["imagen"].setStyleSheet("background: rgba(0,0,0,0.35); color:#fff; border-radius:8px; padding:6px;")
+        form_grid.addWidget(QLabel("Imagen del Producto:"), row, 0)
+        # contenedor para la caja de texto + botones
+        imagen_container = QWidget()
+        imagen_layout = QHBoxLayout()
+        imagen_layout.setContentsMargins(0,0,0,0)
+        imagen_layout.addWidget(self.campos["imagen"])
+        btn_cargar_imagen = QPushButton("Cargar Imagen")
+        btn_cargar_imagen.clicked.connect(self.cargar_imagen)
+        imagen_layout.addWidget(btn_cargar_imagen)
+        btn_camara = QPushButton("Tomar Foto")
+        btn_camara.clicked.connect(self.tomar_foto)
+        imagen_layout.addWidget(btn_camara)
+        imagen_container.setLayout(imagen_layout)
+        form_grid.addWidget(imagen_container, row, 1)
+        row += 1
+
+        self.campos["precio"] = self.crear_campo("Precio (Bs.):", QLineEdit(), form_grid, row); row += 1
+        self.campos["fecha_vencimiento"] = self.crear_campo("Fecha de Vencimiento:", QDateEdit(), form_grid, row); row += 1
+        self.campos["cajas"] = self.crear_campo("Cajas:", QLineEdit(), form_grid, row); row += 1
+        self.campos["paquetes_por_caja"] = self.crear_campo("Paquetes por caja:", QLineEdit(), form_grid, row); row += 1
+        self.campos["unidades_por_paquete"] = self.crear_campo("Unidades por paquete:", QLineEdit(), form_grid, row); row += 1
+        self.campos["unidades"] = self.crear_campo("Unidades sueltas:", QLineEdit(), form_grid, row); row += 1
 
         self.campos["fecha_vencimiento"].setCalendarPopup(True)
         self.campos["fecha_vencimiento"].setDate(QDate.currentDate())
@@ -112,43 +147,55 @@ class InsertarProductoWindow(QMainWindow):
 
         self.campos["codigo"].setPlaceholderText("Ejemplo: 0001")
 
-        imagen_layout = QHBoxLayout()
-        imagen_layout.addWidget(self.campos["imagen"])
-        btn_cargar_imagen = QPushButton("Cargar Imagen")
-        btn_cargar_imagen.clicked.connect(self.cargar_imagen)
-        imagen_layout.addWidget(btn_cargar_imagen)
-        btn_camara = QPushButton("Tomar Foto")
-        btn_camara.clicked.connect(self.tomar_foto)
-        imagen_layout.addWidget(btn_camara)
-        form_layout.addWidget(QLabel("Imagen del Producto:"))
-        form_layout.addLayout(imagen_layout)
-
-        main_layout.addLayout(form_layout)
+        # Agregar la cuadrícula dentro de un contenedor y al layout principal
+        form_container = QWidget()
+        form_container.setLayout(form_grid)
+        main_layout.addWidget(form_container)
 
         # Botones al fondo
         buttons_layout = QHBoxLayout()
         btn_guardar = QPushButton("Guardar")
-        btn_guardar.setStyleSheet("background-color: #4CAF50; color: white;")
+        btn_guardar.setObjectName("guardar")
+        btn_guardar.setStyleSheet("background: qlineargradient(x1:0,y1:0,x2:1,y2:0, stop:0 #7ed6fa, stop:1 #ffb6e6); color:#22223b;")
         btn_guardar.clicked.connect(self.guardar_producto)
         buttons_layout.addWidget(btn_guardar)
 
         btn_limpiar = QPushButton("Limpiar")
-        btn_limpiar.setStyleSheet("background-color: #f39c12; color: white;")
+        btn_limpiar.setObjectName("limpiar")
+        btn_limpiar.setStyleSheet("background: qlineargradient(x1:0,y1:0,x2:1,y2:0, stop:0 #ffa69e, stop:1 #ffb6e6); color:#22223b;")
         btn_limpiar.clicked.connect(self.limpiar_formulario)
         buttons_layout.addWidget(btn_limpiar)
 
         btn_volver = QPushButton("Volver")
-        btn_volver.setStyleSheet("background-color: #95a5a6; color: white;")
+        btn_volver.setObjectName("volver")
+        btn_volver.setStyleSheet("background: rgba(255,255,255,0.12); color: #ffffff; border: 1px solid rgba(255,255,255,0.08);")
         btn_volver.clicked.connect(self.volver_a_lista)
         buttons_layout.addWidget(btn_volver)
 
         btn_menu = QPushButton("Menú Principal")
-        btn_menu.setStyleSheet("background-color: #FFD700; color: black; font-weight: bold; padding: 8px 15px; border-radius: 5px;")
+        btn_menu.setObjectName("menu")
+        btn_menu.setStyleSheet("background: qlineargradient(x1:0,y1:0,x2:1,y2:0, stop:0 #8bd3ff, stop:1 #ffb6e6); color:#22223b; font-weight: bold; padding: 8px 15px; border-radius: 8px;")
         btn_menu.clicked.connect(self.ir_menu_principal)
         buttons_layout.addWidget(btn_menu)
 
+        # Colocar los botones justo después del formulario y centrar
+        buttons_widget = QWidget()
+        buttons_widget.setLayout(buttons_layout)
+        main_layout.addWidget(buttons_widget, alignment=Qt.AlignCenter)
+        # Mantener un stretch abajo para empujar todo ligeramente hacia arriba
         main_layout.addStretch(1)
-        main_layout.addLayout(buttons_layout)
+
+    def resizeEvent(self, event):
+        # Escala el pixmap de fondo para cubrir la ventana si existe
+        try:
+            if hasattr(self, '_bg_pixmap') and self._bg_pixmap and hasattr(self, 'bg_label'):
+                scaled = self._bg_pixmap.scaled(self.size(), Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation)
+                self.bg_label.setPixmap(scaled)
+                self.bg_label.resize(self.size())
+                self.bg_label.lower()
+        except Exception:
+            pass
+        return super().resizeEvent(event)
 
     def cargar_empleados(self):
         """Carga los empleados en el combo desde la tabla empleado, mostrando solo nombre e ID."""
@@ -161,10 +208,26 @@ class InsertarProductoWindow(QMainWindow):
             self.combo_empleado.addItem(f"{nombre} - ID: {id_empleado} - Rol: {rol}", id_empleado)
         conn.close()
 
-    def crear_campo(self, label_text, widget, layout):
+    def crear_campo(self, label_text, widget, layout, row=None):
+        """Crea un par etiqueta+widget. Si se pasa un QGridLayout y row, lo coloca en (row, 0/1).
+        Si no, lo coloca usando addWidget secuencialmente (para compatibilidad).
+        """
         label = QLabel(label_text)
-        layout.addWidget(label)
-        layout.addWidget(widget)
+        from PyQt5.QtWidgets import QGridLayout, QDateEdit
+        # Estilizar inputs basicos
+        try:
+            if isinstance(widget, (QLineEdit, QDateEdit)):
+                widget.setStyleSheet("background: rgba(0,0,0,0.35); color:#fff; border-radius:8px; padding:6px;")
+        except Exception:
+            pass
+
+        if isinstance(layout, QGridLayout) and row is not None:
+            layout.addWidget(label, row, 0)
+            layout.addWidget(widget, row, 1)
+        else:
+            layout.addWidget(label)
+            layout.addWidget(widget)
+
         return widget
 
     def crear_validador_numerico(self, entero=False):

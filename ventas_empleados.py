@@ -5,7 +5,7 @@ import subprocess
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QLabel, QLineEdit, QPushButton, QTableWidget, QTableWidgetItem, 
-    QMessageBox, QSpinBox, QHeaderView, QComboBox
+    QMessageBox, QSpinBox, QHeaderView, QComboBox, QDialog
 )
 from PyQt5.QtCore import Qt
 from datetime import datetime, timedelta
@@ -31,6 +31,7 @@ class VentasWindow(QMainWindow):
         self.conexion = sqlite3.connect(db_path)
         self.cursor = self.conexion.cursor()
         self.carrito = []
+        self.id_empleado = None  # Nuevo atributo para almacenar el ID del empleado
 
         main_widget = QWidget()
         main_layout = QVBoxLayout()
@@ -158,6 +159,34 @@ class VentasWindow(QMainWindow):
 
         self.tabla.selectionModel().selectionChanged.connect(self.actualizar_spinbox)
         self.cargar_todos_productos()
+        self.seleccionar_empleado()  # Nueva llamada para seleccionar empleado al iniciar
+
+    def seleccionar_empleado(self):
+        """Selecciona el empleado activo al iniciar la ventana."""
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Seleccionar Empleado")
+        layout = QVBoxLayout()
+        label = QLabel("Seleccione el empleado que realizará las ventas hoy:")
+        layout.addWidget(label)
+        combo = QComboBox()
+        self.cursor.execute("SELECT id_empleado, nombre FROM empleado")
+        empleados = self.cursor.fetchall()
+        for id_emp, nombre in empleados:
+            combo.addItem(f"{nombre} [ID: {id_emp}]", id_emp)
+        layout.addWidget(combo)
+        btn = QPushButton("Confirmar")
+        layout.addWidget(btn)
+        def confirmar():
+            self.id_empleado = combo.currentData()
+            dialog.accept()
+        btn.clicked.connect(confirmar)
+        dialog.setLayout(layout)
+        dialog.exec_()
+
+    def cerrar_dia(self):
+        """Cierra el día y limpia el empleado activo."""
+        self.id_empleado = None
+        QMessageBox.information(self, "Día cerrado", "El empleado activo ha sido desregistrado. Puedes seleccionar uno nuevo al iniciar ventas.")
 
     def cargar_todos_productos(self):
         """Carga todos los productos de las tres tablas."""
@@ -357,56 +386,64 @@ class VentasWindow(QMainWindow):
         total = sum(item["cantidad_unidades"] * item["precio"] for item in self.carrito)
         descuento = total * (self.descuento_porcentaje / 100)
         total_con_descuento = total - descuento
-        for item in self.carrito:
-            # Obtener datos actuales del producto
-            self.cursor.execute("SELECT cajas, unidades, stock FROM productos WHERE id_producto = ?", (item["id"],))
-            result = self.cursor.fetchone()
-            if not result:
-                continue
-            cajas_actual, unidades_por_caja, stock_actual = result
-
-            if item["tipo"] == "Por caja":
-                # Descontar cajas y stock
-                nuevas_cajas = cajas_actual - item["cantidad"]
-                nuevas_unidades = unidades_por_caja
-                nuevas_stock = nuevas_cajas * nuevas_unidades
-                self.cursor.execute(
-                    "UPDATE productos SET cajas = ?, stock = ? WHERE id_producto = ?",
-                    (nuevas_cajas, nuevas_stock, item["id"])
-                )
-            else:  # Por unidad
-                # Descontar unidades y ajustar cajas si corresponde
-                unidades_vendidas = item["cantidad"]
-                total_unidades = cajas_actual * unidades_por_caja if cajas_actual and unidades_por_caja else stock_actual
-                nuevas_total_unidades = total_unidades - unidades_vendidas
-
-                if cajas_actual and unidades_por_caja:
-                    nuevas_cajas = nuevas_total_unidades // unidades_por_caja
-                    nuevas_unidades = nuevas_total_unidades % unidades_por_caja
-                    # Si hay unidades sueltas, se guardan en stock y cajas
-                    self.cursor.execute(
-                        "UPDATE productos SET cajas = ?, unidades = ?, stock = ? WHERE id_producto = ?",
-                        (nuevas_cajas, nuevas_unidades, nuevas_total_unidades, item["id"])
-                    )
-                else:
-                    # Solo descontar del stock si no hay cajas configuradas
-                    self.cursor.execute(
-                        "UPDATE productos SET stock = ? WHERE id_producto = ?",
-                        (nuevas_total_unidades, item["id"])
-                    )
-
-            # Registrar movimiento
+        try:
+            # Registrar la venta con información básica (ahora con id_empleado)
             self.cursor.execute(
-                "INSERT INTO movimientos_inventario (codigo_producto, tipo_movimiento, cantidad, fecha_movimiento, observaciones, usuario) VALUES (?, ?, ?, ?, ?, ?)",
-                (item["codigo"], "venta", item["cantidad"], fecha_mov, "Venta realizada desde sistema admin", "admin")
+                "INSERT INTO ventas (fecha_venta, total_venta, id_empleado) VALUES (?, ?, ?)",
+                (fecha_mov, total_con_descuento, self.id_empleado)
             )
-        self.conexion.commit()
-        self.carrito = []
-        self.tabla_carrito.setRowCount(0)
-        self.label_total.setText("Total: 0.00 Bs.")
-        self.label_descuento.setText("Descuento aplicado: 0.00 Bs.")
-        QMessageBox.information(self, "Venta procesada", f"Venta realizada correctamente.\nTotal con descuento: {total_con_descuento:.2f} Bs.")
-        self.cargar_todos_productos()
+            for item in self.carrito:
+                # Obtener datos actuales del producto
+                self.cursor.execute("SELECT cajas, unidades, stock FROM productos WHERE id_producto = ?", (item["id"],))
+                result = self.cursor.fetchone()
+                if not result:
+                    continue
+                cajas_actual, unidades_por_caja, stock_actual = result
+
+                if item["tipo"] == "Por caja":
+                    # Descontar cajas y stock
+                    nuevas_cajas = cajas_actual - item["cantidad"]
+                    nuevas_unidades = unidades_por_caja
+                    nuevas_stock = nuevas_cajas * nuevas_unidades
+                    self.cursor.execute(
+                        "UPDATE productos SET cajas = ?, stock = ? WHERE id_producto = ?",
+                        (nuevas_cajas, nuevas_stock, item["id"])
+                    )
+                else:  # Por unidad
+                    # Descontar unidades y ajustar cajas si corresponde
+                    unidades_vendidas = item["cantidad"]
+                    total_unidades = cajas_actual * unidades_por_caja if cajas_actual and unidades_por_caja else stock_actual
+                    nuevas_total_unidades = total_unidades - unidades_vendidas
+
+                    if cajas_actual and unidades_por_caja:
+                        nuevas_cajas = nuevas_total_unidades // unidades_por_caja
+                        nuevas_unidades = nuevas_total_unidades % unidades_por_caja
+                        # Si hay unidades sueltas, se guardan en stock y cajas
+                        self.cursor.execute(
+                            "UPDATE productos SET cajas = ?, unidades = ?, stock = ? WHERE id_producto = ?",
+                            (nuevas_cajas, nuevas_unidades, nuevas_total_unidades, item["id"])
+                        )
+                    else:
+                        # Solo descontar del stock si no hay cajas configuradas
+                        self.cursor.execute(
+                            "UPDATE productos SET stock = ? WHERE id_producto = ?",
+                            (nuevas_total_unidades, item["id"])
+                        )
+
+                # Registrar movimiento
+                self.cursor.execute(
+                    "INSERT INTO movimientos_inventario (codigo_producto, tipo_movimiento, cantidad, fecha_movimiento, observaciones, usuario) VALUES (?, ?, ?, ?, ?, ?)",
+                    (item["codigo"], "venta", item["cantidad"], fecha_mov, "Venta realizada desde sistema admin", "admin")
+                )
+            self.conexion.commit()
+            self.carrito = []
+            self.tabla_carrito.setRowCount(0)
+            self.label_total.setText("Total: 0.00 Bs.")
+            self.label_descuento.setText("Descuento aplicado: 0.00 Bs.")
+            QMessageBox.information(self, "Venta procesada", f"Venta realizada correctamente.\nTotal con descuento: {total_con_descuento:.2f} Bs.")
+            self.cargar_todos_productos()
+        except Exception as e:
+            QMessageBox.critical(self, "Error al procesar venta", f"Ocurrió un error: {e}")
 
     def calcular_cambio(self):
         """Calcula el cambio y muestra la cantidad y billetes sugeridos."""

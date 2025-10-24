@@ -8,7 +8,7 @@ import pandas as pd
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QVBoxLayout, QHBoxLayout, QLineEdit,
     QPushButton, QTableWidget, QTableWidgetItem, QHeaderView, QWidget, 
-    QMessageBox, QLabel, QFrame, QFileDialog, QGraphicsDropShadowEffect
+    QMessageBox, QLabel, QFrame, QFileDialog, QGraphicsDropShadowEffect, QGraphicsBlurEffect
 )
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QColor, QPixmap, QIcon
@@ -39,8 +39,8 @@ class DatabaseManager:
             conn = sqlite3.connect(DatabaseManager.get_db_path())
             cursor = conn.cursor()
             cursor.execute("""
-                SELECT p.id_producto, p.codigo, p.imagen, p.nombre, p.precio, p.stock, p.fecha_venc,
-                       p.id_empleado, p.cajas, p.unidades
+                SELECT p.id_producto, p.codigo, p.imagen, p.nombre, p.precio, p.fecha_venc,
+                       p.id_empleado, p.unidades
                 FROM productos p
             """)
             products = cursor.fetchall()
@@ -57,21 +57,25 @@ class DatabaseManager:
             conn = sqlite3.connect(DatabaseManager.get_db_path())
             cursor = conn.cursor()
             
+            # Obtener el producto a eliminar con todos los datos necesarios
             cursor.execute("""
-                SELECT id_producto, codigo, imagen, nombre, precio, stock, fecha_venc
-            FROM productos WHERE id_producto = ?
+                SELECT id_producto, codigo, imagen, nombre, precio, fecha_venc, id_empleado, unidades
+                FROM productos WHERE id_producto = ?
             """, (product_id,))
             product = cursor.fetchone()
             
             if product:
-                # El tuple 'product' ya contiene los 10 valores,
-                # ahora insertamos en la tabla de eliminados con la fecha de borrado
-                cursor.execute("""
-                INSERT INTO productos_borrados (
-                    id_producto, codigo, imagen, nombre, precio, stock, fecha_venc
-                ) VALUES (?, ?, ?, ?, ?, ?, ?)
-            """, product) # Añadir el valor de fecha_borrado
+                # Desempacar los valores
+                id_producto, codigo, imagen, nombre, precio, fecha_venc, id_empleado, unidades = product
                 
+                # Insertar en la tabla productos_borrados con la estructura correcta
+                cursor.execute("""
+                    INSERT INTO productos_borrados (
+                        id_producto, codigo, imagen, nombre, precio, stock, fecha_venc, id_empleado
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """, (id_producto, codigo, imagen, nombre, precio, unidades, fecha_venc, id_empleado))
+                
+                # Eliminar de la tabla principal
                 cursor.execute("DELETE FROM productos WHERE id_producto = ?", (product_id,))
                 conn.commit()
                 return True
@@ -199,11 +203,22 @@ class ProductManagementWindow(QMainWindow):
         self.empleado_actual_id = empleado_actual_id
         self.setWindowTitle("Gestión de Productos")
         self.setGeometry(100, 100, 1100, 650)
+        # Fondo por defecto transparente (sobre el cual se colocará image4.jpg)
         self.setStyleSheet("""
-            QMainWindow {
-                background-color: #f4f6fb;
-            }
+            QMainWindow { background: transparent; }
         """)
+
+        # Cargar fondo decorativo (image4.jpg) si existe
+        fondo = os.path.abspath(os.path.join(os.path.dirname(__file__), 'image4.jpg'))
+        if os.path.exists(fondo):
+            self._bg_pixmap = QPixmap(fondo)
+            self.bg_label = QLabel(self)
+            self.bg_label.setScaledContents(True)
+            blur = QGraphicsBlurEffect(self.bg_label)
+            blur.setBlurRadius(12)
+            self.bg_label.setGraphicsEffect(blur)
+            self.bg_label.setAttribute(Qt.WA_TransparentForMouseEvents)
+            self.bg_label.lower()
         self._setup_ui()
         self._load_products()
         self.table.setMouseTracking(True)  # Permite detectar el puntero sobre la celda
@@ -212,63 +227,38 @@ class ProductManagementWindow(QMainWindow):
     def _setup_ui(self):
         main_widget = QWidget()
         main_layout = QVBoxLayout(main_widget)
-
-        # Barra de búsqueda
-        search_layout = QHBoxLayout()
+        # Márgenes y espaciado más amplios para un aspecto moderno
+        main_layout.setContentsMargins(24, 24, 24, 24)
+        main_layout.setSpacing(12)
+        # Hacer el widget principal transparente para que se vea el fondo
+        main_widget.setAttribute(Qt.WA_TranslucentBackground)
+        # Top bar: búsqueda a la izquierda, botones a la derecha
         self.search_input = QLineEdit()
         self.search_input.setPlaceholderText("Buscar por nombre, código, línea o presentación...")
         self.search_input.setStyleSheet("""
             QLineEdit {
-                background-color: #ffffff;
-                border: 2px solid #dbe2ef;
-                border-radius: 18px;
+                background: rgba(0,0,0,0.35);
+                border: none;
+                border-radius: 22px;
                 padding: 10px 18px;
-                font-size: 15px;
-                color: #22223b;
+                font-size: 15px; color: #ffffff;
             }
-            QLineEdit:focus {
-                border-color: #a3cef1;
-                background-color: #f0f4fa;
-            }
+            QLineEdit::placeholder { color: rgba(255,255,255,0.75); }
         """)
         btn_search = QPushButton("Buscar")
-        btn_search.setStyleSheet("""
-            QPushButton {
-                background-color: #a3cef1;
-                color: #22223b;
-                border-radius: 12px;
-                padding: 8px 18px;
-                font-weight: bold;
-                font-size: 14px;
-            }
-            QPushButton:hover {
-                background-color: #b6e0fe;
-            }
-        """)
+        btn_search.setStyleSheet("background: qlineargradient(x1:0,y1:0,x2:1,y2:0, stop:0 #7ed6fa, stop:1 #ffb6e6); color:#22223b; border-radius:14px; padding:8px 16px; font-weight:700;")
         btn_search.clicked.connect(self._search_products)
-
         btn_clear = QPushButton("Limpiar")
-        btn_clear.setStyleSheet("""
-            QPushButton {
-                background-color: #f9fafc;
-                color: #22223b;
-                border-radius: 12px;
-                padding: 8px 18px;
-                font-weight: bold;
-                font-size: 14px;
-                border: 1px solid #dbe2ef;
-            }
-            QPushButton:hover {
-                background-color: #e0e7ef;
-            }
-        """)
+        btn_clear.setStyleSheet("background: rgba(255,255,255,0.08); color:#ffffff; border-radius:14px; padding:8px 16px; border:1px solid rgba(255,255,255,0.06);")
         btn_clear.clicked.connect(self._clear_search)
-        search_layout.addWidget(self.search_input)
-        search_layout.addWidget(btn_search)
-        search_layout.addWidget(btn_clear)
-        main_layout.addLayout(search_layout)
 
-        # Botones principales
+        top_layout = QHBoxLayout()
+        top_layout.addWidget(self.search_input, 1)
+        top_layout.addWidget(btn_search)
+        top_layout.addWidget(btn_clear)
+        top_layout.addStretch(1)
+
+        # Botones principales (alineados a la derecha en la top bar)
         btn_layout = QHBoxLayout()
         btn_insert = QPushButton("Insertar")
         btn_insert.setStyleSheet("""
@@ -352,19 +342,7 @@ class ProductManagementWindow(QMainWindow):
         btn_export.clicked.connect(lambda: self._export_products("xlsx"))
 
         btn_menu = QPushButton("Menú Principal")
-        btn_menu.setStyleSheet("""
-            QPushButton {
-                background-color: #FFD700;
-                color: #22223b;
-                border-radius: 12px;
-                padding: 8px 18px;
-                font-weight: bold;
-                font-size: 14px;
-            }
-            QPushButton:hover {
-                background-color: #ffe066;
-            }
-        """)
+        btn_menu.setStyleSheet("background: rgba(255,255,255,0.06); color:#ffffff; border-radius:12px; padding:8px 18px; border:1px solid rgba(255,255,255,0.06);")
         btn_menu.clicked.connect(self.ir_menu_principal)
         btn_layout.addWidget(btn_menu)
 
@@ -373,114 +351,69 @@ class ProductManagementWindow(QMainWindow):
         btn_layout.addWidget(btn_sell)
         btn_layout.addWidget(btn_refresh)
         btn_layout.addWidget(btn_export)
-        main_layout.addLayout(btn_layout)
+        # Insertar top_layout antes de la botonera principal para un topbar organizado
+        top_bar = QHBoxLayout()
+        top_bar.addLayout(top_layout)
+        top_bar.addLayout(btn_layout)
+        main_layout.addLayout(top_bar)
 
         # Tabla de productos
         self.table = QTableWidget()
-        self.table.setColumnCount(12)
+        self.table.setColumnCount(8)
         self.table.setHorizontalHeaderLabels([
-            "Código", "Nombre", "Imagen", "Precio", "Cajas", "Paquetes", "Paquetes Totales",
-            "Unidades por Paquete", "Unidades Totales", "Fecha Venc.", "Empleado", "Acciones"
+            "Código", "Nombre", "Imagen", "Precio", "Unidades",
+            "Fecha Venc.", "Empleado", "Acciones"
         ])
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        # Hacer la tabla transparente y con encabezados legibles sobre el fondo
+        self.table.setStyleSheet("""
+            QTableWidget { background: transparent; color: #ffffff; border: none; }
+            QTableWidget::item { background: transparent; }
+            QTableWidget::item:selected { background: rgba(255,255,255,0.08); }
+            QHeaderView::section { background: rgba(0,0,0,0.45); color: #ffffff; border: none; padding: 6px; }
+        """)
+        self.table.setShowGrid(False)
+        self.table.setAlternatingRowColors(False)
         self.table.setSelectionBehavior(QTableWidget.SelectRows)
         main_layout.addWidget(self.table)
 
         self.setCentralWidget(main_widget)
 
-    def _load_products(self):
-        selected_row = self.table.currentRow()
-        selected_id = None
-        if selected_row >= 0:
-            item = self.table.item(selected_row, 0)
-            if item:
-                selected_id = item.text()
-
-        products = []
+    def resizeEvent(self, event):
         try:
-            conn = sqlite3.connect(DatabaseManager.get_db_path())
-            cursor = conn.cursor()
-            cursor.execute("""
-                SELECT id_producto, codigo, imagen, nombre, precio, fecha_venc, id_empleado,
-                       cajas, paquetes, unidades_por_paquete, unidades, paquetes_por_caja
-                FROM productos
-            """)
-            products = cursor.fetchall()
-            conn.close()
-        except sqlite3.Error as e:
-            QMessageBox.critical(self, "Error", f"No se pudo obtener los datos: {e}")
+            if hasattr(self, '_bg_pixmap') and self._bg_pixmap and hasattr(self, 'bg_label'):
+                scaled = self._bg_pixmap.scaled(self.size(), Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation)
+                self.bg_label.setPixmap(scaled)
+                self.bg_label.resize(self.size())
+                self.bg_label.lower()
+        except Exception:
+            pass
+        return super().resizeEvent(event)
 
+    def _load_products(self):
+        products = DatabaseManager.get_products()
         self.table.setRowCount(0)
         for row_num, product in enumerate(products):
             self.table.insertRow(row_num)
-            (id_producto, codigo, imagen, nombre, precio, fecha_venc, id_empleado,
-             cajas, paquetes, unidades_por_paquete, unidades_sueltas, paquetes_por_caja) = product
+            (id_producto, codigo, imagen, nombre, precio, fecha_venc, id_empleado, unidades) = product
 
-            # Consulta las unidades por paquete desde la tabla productos_unidades
-            unidades_por_paquete_db = None
-            try:
-                conn = sqlite3.connect(DatabaseManager.get_db_path())
-                cursor = conn.cursor()
-                cursor.execute(
-                    "SELECT unidades FROM productos_unidades WHERE id_producto = ?", (id_producto,)
-                )
-                result = cursor.fetchone()
-                if result:
-                    unidades_por_paquete_db = result[0]
-                conn.close()
-            except Exception:
-                unidades_por_paquete_db = unidades_por_paquete
-
-            if unidades_por_paquete_db is None:
-                unidades_por_paquete_db = unidades_por_paquete
-
-            # Lógica mejorada para el conteo
-            if cajas and cajas > 0:
-                paquetes_totales = (paquetes if paquetes else 0) * cajas
-                unidades_totales = paquetes_totales * (unidades_por_paquete_db if unidades_por_paquete_db else 0) + (unidades_sueltas if unidades_sueltas else 0)
-            elif paquetes and paquetes > 0:
-                paquetes_totales = paquetes
-                unidades_totales = paquetes_totales * (unidades_por_paquete_db if unidades_por_paquete_db else 0) + (unidades_sueltas if unidades_sueltas else 0)
-            else:
-                paquetes_totales = 0
-                unidades_totales = unidades_sueltas if unidades_sueltas else 0  # Solo productos sueltos
-
-            # Código
-            self.table.setItem(row_num, 0, QTableWidgetItem(str(codigo)))
-            # Nombre
-            self.table.setItem(row_num, 1, QTableWidgetItem(str(nombre)))
-            # Imagen
-            self.table.setItem(row_num, 2, QTableWidgetItem(str(imagen)))
-            # Precio
-            self.table.setItem(row_num, 3, QTableWidgetItem(f"{precio:.2f}"))
-            # Cajas
-            self.table.setItem(row_num, 4, QTableWidgetItem(str(cajas)))
-            # Paquetes (sueltos)
-            self.table.setItem(row_num, 5, QTableWidgetItem(str(paquetes)))
-            # Paquetes totales
-            self.table.setItem(row_num, 6, QTableWidgetItem(f"{paquetes_totales:,}".replace(",", ".")))
-            # Unidades por paquete
-            self.table.setItem(row_num, 7, QTableWidgetItem(f"{unidades_por_paquete_db:,}".replace(",", ".")))
-            # Unidades totales
-            self.table.setItem(row_num, 8, QTableWidgetItem(f"{unidades_totales:,}".replace(",", ".")))
-
-            # Actualiza la columna unidades_totales en productos_unidades para este producto
-            try:
-                conn_update = sqlite3.connect(DatabaseManager.get_db_path())
-                cursor_update = conn_update.cursor()
-                cursor_update.execute(
-                    "UPDATE productos_unidades SET unidades_totales = ? WHERE id_producto = ?",
-                    (unidades_totales, id_producto)
-                )
-                conn_update.commit()
-                conn_update.close()
-            except Exception:
-                pass
-            # Fecha Venc.
+            item0 = QTableWidgetItem(str(codigo))
+            item1 = QTableWidgetItem(str(nombre))
+            item2 = QTableWidgetItem(str(imagen))
+            item3 = QTableWidgetItem(f"{precio:.2f}")
+            item4 = QTableWidgetItem(str(unidades))
+            for it in (item0, item1, item2, item3, item4):
+                it.setForeground(QColor('#ffffff'))
+                it.setBackground(Qt.transparent)
+            self.table.setItem(row_num, 0, item0)
+            self.table.setItem(row_num, 1, item1)
+            self.table.setItem(row_num, 2, item2)
+            self.table.setItem(row_num, 3, item3)
+            self.table.setItem(row_num, 4, item4)
+            
             fecha_str = ""
             if fecha_venc:
                 try:
-                    # Si fecha_venc es un entero tipo timestamp, conviértelo
                     if isinstance(fecha_venc, int) or (isinstance(fecha_venc, str) and fecha_venc.isdigit()):
                         fecha = datetime.fromtimestamp(int(fecha_venc))
                         fecha_str = fecha.strftime("%Y-%m-%d")
@@ -488,62 +421,27 @@ class ProductManagementWindow(QMainWindow):
                         fecha = datetime.strptime(str(fecha_venc), "%Y-%m-%d")
                         fecha_str = fecha.strftime("%Y-%m-%d")
                 except Exception:
-                    fecha_str = ""  # Si no se puede convertir, lo deja vacío
-            self.table.setItem(row_num, 9, QTableWidgetItem(fecha_str))
-            # Empleado
-            self.table.setItem(row_num, 10, QTableWidgetItem(str(id_empleado)))
-            # Acciones
+                    fecha_str = ""
+            item5 = QTableWidgetItem(fecha_str)
+            item6 = QTableWidgetItem(str(id_empleado))
+            for it in (item5, item6):
+                it.setForeground(QColor('#ffffff'))
+                it.setBackground(Qt.transparent)
+            self.table.setItem(row_num, 5, item5)
+            self.table.setItem(row_num, 6, item6)
+            
             self._add_action_dropdown(row_num, id_producto)
 
-        # Restaurar la selección si es posible
-        if selected_id is not None:
-            for row in range(self.table.rowCount()):
-                item = self.table.item(row, 0)
-                if item and item.text() == selected_id:
-                    self.table.selectRow(row)
-                    break
-
-        total_paquetes = 0
-        for product in products:
-            cajas = product[7]
-            paquetes_por_caja = product[11]
-            paquetes_sueltos = product[8]
-            # Suma los paquetes totales según la lógica mejorada
-            if cajas and cajas > 0:
-                paquetes_totales = (paquetes_sueltos if paquetes_sueltos else 0) * cajas
-            elif paquetes_sueltos and paquetes_sueltos > 0:
-                paquetes_totales = paquetes_sueltos
-            else:
-                paquetes_totales = 0
-            total_paquetes += paquetes_totales
-
-        # Puedes mostrarlo en una StatsCard arriba de la tabla:
-        stats_card = StatsCard("Paquetes totales en inventario", total_paquetes, icon="📦", color="#4CAF50")
-        # Si ya tienes una tarjeta, actualízala; si no, agrégala al layout principal:
-        # main_layout.insertWidget(0, stats_card)
-
-        # Agrega una fila resumen al final
-        resumen_row = self.table.rowCount()
-        self.table.insertRow(resumen_row)
-        self.table.setSpan(resumen_row, 0, 1, 6)
-        self.table.setItem(resumen_row, 0, QTableWidgetItem("TOTAL PAQUETES"))
-        self.table.setItem(resumen_row, 6, QTableWidgetItem(str(total_paquetes)))
-
     def _add_action_dropdown(self, row_num, product_id):
-        from PyQt5.QtWidgets import QComboBox
+        from PyQt5.QtWidgets import QPushButton, QDialog, QVBoxLayout, QLabel
 
         action_widget = QWidget()
         action_layout = QHBoxLayout(action_widget)
         action_layout.setContentsMargins(0, 0, 0, 0)
 
-        combo = QComboBox()
-        combo.addItem("Seleccionar acción")
-        combo.addItem("Editar")
-        combo.addItem("Eliminar")
-        combo.addItem("Ajustar cantidad")
-        combo.addItem("Reasignar precio")
-        combo.setStyleSheet("""
-            QComboBox {
+        btn_opciones = QPushButton("Opciones")
+        btn_opciones.setStyleSheet("""
+            QPushButton {
                 background-color: #e0e7ef;
                 color: #22223b;
                 border-radius: 8px;
@@ -551,22 +449,36 @@ class ProductManagementWindow(QMainWindow):
                 font-weight: bold;
                 font-size: 13px;
             }
+            QPushButton:hover {
+                background-color: #c9d6e3;
+            }
         """)
 
-        def on_action_selected(index):
-            action = combo.currentText()
-            if action == "Editar":
-                self._edit_product(product_id)
-            elif action == "Eliminar":
-                self._confirm_delete_product(product_id)
-            elif action == "Ajustar cantidad":
-                self._adjust_quantity(product_id)
-            elif action == "Reasignar precio":
-                self._reassign_price(product_id)
-            combo.setCurrentIndex(0)  # Reset after action
+        def mostrar_menu():
+            dialog = QDialog(self)
+            dialog.setWindowTitle("Menú de opciones")
+            layout = QVBoxLayout(dialog)
+            label = QLabel(f"¿Qué acción desea realizar para el producto {product_id}?")
+            layout.addWidget(label)
+            # Botones de acción
+            btn_editar = QPushButton("Editar")
+            btn_eliminar = QPushButton("Eliminar")
+            btn_ajustar = QPushButton("Ajustar cantidad")
+            btn_precio = QPushButton("Reasignar precio")
+            layout.addWidget(btn_editar)
+            layout.addWidget(btn_eliminar)
+            layout.addWidget(btn_ajustar)
+            layout.addWidget(btn_precio)
+            # Conexiones
+            btn_editar.clicked.connect(lambda: (dialog.accept(), self._edit_product(product_id)))
+            btn_eliminar.clicked.connect(lambda: (dialog.accept(), self._confirm_delete_product(product_id)))
+            btn_ajustar.clicked.connect(lambda: (dialog.accept(), self._adjust_quantity(product_id)))
+            btn_precio.clicked.connect(lambda: (dialog.accept(), self._reassign_price(product_id)))
+            dialog.setLayout(layout)
+            dialog.exec_()
 
-        combo.currentIndexChanged.connect(on_action_selected)
-        action_layout.addWidget(combo)
+        btn_opciones.clicked.connect(mostrar_menu)
+        action_layout.addWidget(btn_opciones)
         self.table.setCellWidget(row_num, self.table.columnCount() - 1, action_widget)
 
     def _search_products(self):
@@ -574,7 +486,7 @@ class ProductManagementWindow(QMainWindow):
         for row in range(self.table.rowCount()):
             match = any(
                 query in (self.table.item(row, col).text().lower() if self.table.item(row, col) else "")
-                for col in range(1, 9)  # Buscar en todas las columnas excepto ID y acciones (incluye cajas)
+                for col in [0, 1, 3]  # Buscar en Código, Nombre, Precio
             )
             self.table.setRowHidden(row, not match)
 
@@ -649,183 +561,89 @@ class ProductManagementWindow(QMainWindow):
         except Exception as e:
             QMessageBox.critical(self, "Error", f"No se pudo abrir menu.py: {e}")
 
-    def _adjust_quantity(self, product_id):
-        """Permite ajustar la cantidad y guarda el total de unidades correctamente en productos_unidades.unidades_totales."""
-        from PyQt5.QtWidgets import QInputDialog
-
-        conn = sqlite3.connect(DatabaseManager.get_db_path())
-        cursor = conn.cursor()
-        cursor.execute("SELECT cajas, paquetes, unidades_por_paquete, unidades, paquetes_por_caja FROM productos WHERE id_producto = ?", (product_id,))
-        result = cursor.fetchone()
-        if not result:
-            conn.close()
-            QMessageBox.warning(self, "Error", "No se encontró el producto.")
-            return
-
-        cajas_actual, paquetes_actual, unidades_por_paquete_actual, unidades_sueltas_actual, paquetes_por_caja_actual = result
-
-        # Solicitar nueva cantidad de cajas
-        cajas, ok_cajas = QInputDialog.getInt(
-            self, "Ajustar cantidad de cajas",
-            f"Cantidad actual de cajas: {cajas_actual}\nIngrese nueva cantidad de cajas:",
-            value=cajas_actual, min=0
-        )
-        if not ok_cajas:
-            conn.close()
-            return
-
-        # Solicitar nueva cantidad de paquetes
-        paquetes, ok_paquetes = QInputDialog.getInt(
-            self, "Ajustar cantidad de paquetes",
-            f"Cantidad actual de paquetes: {paquetes_actual}\nIngrese nueva cantidad de paquetes:",
-            value=paquetes_actual, min=0
-        )
-        if not ok_paquetes:
-            conn.close()
-            return
-
-        # Solicitar nueva cantidad de unidades por paquete
-        unidades_por_paquete, ok_unidades = QInputDialog.getInt(
-            self, "Ajustar unidades por paquete",
-            f"Unidades actuales por paquete: {unidades_por_paquete_actual}\nIngrese nueva cantidad de unidades por paquete:",
-            value=unidades_por_paquete_actual, min=1
-        )
-        if not ok_unidades:
-            conn.close()
-            return
-
-        # Solicitar nueva cantidad de unidades sueltas
-        unidades_sueltas, ok_unidades_sueltas = QInputDialog.getInt(
-            self, "Ajustar unidades sueltas",
-            f"Unidades sueltas actuales: {unidades_sueltas_actual}\nIngrese nueva cantidad de unidades sueltas:",
-            value=unidades_sueltas_actual, min=0
-        )
-        if not ok_unidades_sueltas:
-            conn.close()
-            return
-
-        # Solicitar nueva cantidad de paquetes por caja
-        paquetes_por_caja, ok_paquetes_por_caja = QInputDialog.getInt(
-            self, "Ajustar paquetes por caja",
-            f"Paquetes por caja actuales: {paquetes_por_caja_actual}\nIngrese nueva cantidad de paquetes por caja:",
-            value=paquetes_por_caja_actual, min=0
-        )
-        if not ok_paquetes_por_caja:
-            conn.close()
-            return
-
-        try:
-            # Actualizar en la tabla productos
-            cursor.execute(
-                "UPDATE productos SET cajas = ?, paquetes = ?, unidades_por_paquete = ?, unidades = ?, paquetes_por_caja = ? WHERE id_producto = ?",
-                (cajas, paquetes, unidades_por_paquete, unidades_sueltas, paquetes_por_caja, product_id)
-            )
-
-            # Registrar paquetes en productos_paquetes
-            cursor.execute("SELECT nombre, codigo, precio, fecha_venc, id_empleado FROM productos WHERE id_producto = ?", (product_id,))
-            prod_data = cursor.fetchone()
-            if prod_data:
-                nombre, codigo, precio, fecha_venc, id_empleado = prod_data
-                cursor.execute("""
-                    INSERT OR REPLACE INTO productos_paquetes (id_producto, codigo, nombre, precio_paquete, fecha_venc, id_empleado, paquetes_disponibles, unidades_por_paquete)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                """, (
-                    product_id, codigo, nombre, precio, fecha_venc, id_empleado, paquetes, unidades_por_paquete
-                ))
-
-            # Calcular el total de unidades tal cual lo muestra la interfaz
-            unidades_totales = (
-                (cajas if cajas else 0) * (paquetes_por_caja if paquetes_por_caja else 0) * (unidades_por_paquete if unidades_por_paquete else 0)
-                + (paquetes if paquetes else 0) * (unidades_por_paquete if unidades_por_paquete else 0)
-                + (unidades_sueltas if unidades_sueltas else 0)
-            )
-
-            # Registrar unidades por paquete y unidades totales en productos_unidades
-            cursor.execute("SELECT 1 FROM productos_unidades WHERE id_producto = ?", (product_id,))
-            existe = cursor.fetchone()
-
-            if existe:
-                cursor.execute("""
-                    UPDATE productos_unidades
-                    SET unidades = ?, unidades_totales = ?
-                    WHERE id_producto = ?
-                """, (unidades_por_paquete, unidades_totales, product_id))
-            else:
-                cursor.execute("""
-                    INSERT INTO productos_unidades (id_producto, codigo, nombre, precio_unitario, fecha_venc, id_empleado, unidades, unidades_totales)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                """, (
-                    product_id, codigo, nombre, precio, fecha_venc, id_empleado, unidades_por_paquete, unidades_totales
-                ))
-
-            # Actualizar solo unidades_totales en productos_unidades
-            cursor.execute("""
-                UPDATE productos_unidades
-                SET unidades_totales = ?
-                WHERE id_producto = ?
-            """, (unidades_totales, product_id))
-
-            conn.commit()
-            QMessageBox.information(self, "Cantidad ajustada", "Las cantidades fueron actualizadas correctamente y el total de unidades se guardó en la base de datos.")
-            self._load_products()
-        except Exception as e:
-            QMessageBox.critical(self, "Error", f"No se pudo ajustar la cantidad:\n{e}")
-        finally:
-            conn.close()
-
-    def _reassign_price(self, product_id):
-        """Permite reasignar el precio de un producto, acepta punto o coma como separador decimal"""
-        from PyQt5.QtWidgets import QInputDialog
-
-        # Obtener precio actual
-        conn = sqlite3.connect(DatabaseManager.get_db_path())
-        cursor = conn.cursor()
-        cursor.execute("SELECT precio FROM productos WHERE id_producto = ?", (product_id,))
-        result = cursor.fetchone()
-        conn.close()
-        if not result:
-            QMessageBox.warning(self, "Error", "No se encontró el producto.")
-            return
-
-        precio_actual = result[0]
-
-        # Solicitar nuevo precio como texto para permitir punto o coma
-        precio_texto, ok = QInputDialog.getText(
-            self, "Reasignar precio",
-            f"Precio actual: {precio_actual}\nIngrese nuevo precio (puede usar punto o coma):",
-            text=str(precio_actual)
-        )
-        if not ok or not precio_texto.strip():
-            return
-
-        # Reemplaza coma por punto y convierte a float
-        try:
-            precio = float(precio_texto.replace(",", "."))
-        except ValueError:
-            QMessageBox.warning(self, "Error", "Ingrese un precio válido (ejemplo: 12.50 o 12,50).")
-            return
-
-        # Actualizar en la base de datos
-        try:
-            conn = sqlite3.connect(DatabaseManager.get_db_path())
-            cursor = conn.cursor()
-            cursor.execute(
-                "UPDATE productos SET precio = ? WHERE id_producto = ?",
-                (precio, product_id)
-            )
-            conn.commit()
-            conn.close()
-            QMessageBox.information(self, "Precio actualizado", "El precio fue actualizado correctamente.")
-            self._load_products()
-        except Exception as e:
-            QMessageBox.critical(self, "Error", f"No se pudo reasignar el precio:\n{e}")
-
     def _show_cell_tooltip(self, row, column):
         item = self.table.item(row, column)
         if item:
             self.table.setToolTip(item.text())
         else:
             self.table.setToolTip("")
+
+    def _adjust_quantity(self, product_id):
+        """Permite ajustar la cantidad de unidades de un producto."""
+        from PyQt5.QtWidgets import QInputDialog
+
+        conn = sqlite3.connect(DatabaseManager.get_db_path())
+        cursor = conn.cursor()
+        cursor.execute("SELECT unidades FROM productos WHERE id_producto = ?", (product_id,))
+        result = cursor.fetchone()
+        if not result:
+            conn.close()
+            QMessageBox.warning(self, "Error", "No se encontró el producto.")
+            return
+
+        unidades_actual = result[0]
+
+        unidades, ok = QInputDialog.getInt(
+            self, "Ajustar Cantidad",
+            f"Unidades actuales: {unidades_actual}\nIngrese la nueva cantidad de unidades:",
+            value=unidades_actual, min=0
+        )
+
+        if ok:
+            try:
+                cursor.execute(
+                    "UPDATE productos SET unidades = ? WHERE id_producto = ?",
+                    (unidades, product_id)
+                )
+                conn.commit()
+                QMessageBox.information(self, "Éxito", "Cantidad actualizada correctamente.")
+                self._load_products()
+            except sqlite3.Error as e:
+                QMessageBox.critical(self, "Error", f"No se pudo actualizar la cantidad: {e}")
+            finally:
+                conn.close()
+        else:
+            conn.close()
+
+    def _reassign_price(self, product_id):
+        """Permite reasignar el precio de un producto."""
+        from PyQt5.QtWidgets import QInputDialog
+
+        conn = sqlite3.connect(DatabaseManager.get_db_path())
+        cursor = conn.cursor()
+        cursor.execute("SELECT precio FROM productos WHERE id_producto = ?", (product_id,))
+        result = cursor.fetchone()
+        if not result:
+            conn.close()
+            QMessageBox.warning(self, "Error", "No se encontró el producto.")
+            return
+
+        precio_actual = result[0]
+
+        precio_texto, ok = QInputDialog.getText(
+            self, "Reasignar Precio",
+            f"Precio actual: {precio_actual:.2f}\nIngrese el nuevo precio (use . o , para decimales):",
+            text=str(precio_actual).replace('.', ',')
+        )
+
+        if ok and precio_texto:
+            try:
+                nuevo_precio = float(precio_texto.replace(',', '.'))
+                cursor.execute(
+                    "UPDATE productos SET precio = ? WHERE id_producto = ?",
+                    (nuevo_precio, product_id)
+                )
+                conn.commit()
+                QMessageBox.information(self, "Éxito", "Precio actualizado correctamente.")
+                self._load_products()
+            except ValueError:
+                QMessageBox.warning(self, "Entrada inválida", "Por favor, ingrese un número válido para el precio.")
+            except sqlite3.Error as e:
+                QMessageBox.critical(self, "Error", f"No se pudo actualizar el precio: {e}")
+            finally:
+                conn.close()
+        else:
+            conn.close()
 
 # Configura el locale para fechas en español
 try:

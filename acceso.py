@@ -13,7 +13,7 @@ from PyQt5.QtGui import QPixmap, QPalette, QBrush, QColor
 class LoginApp(QWidget):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Inicio de Sesión")
+        self.setWindowTitle("Acceso al sistema")
         self.setup_ui()
 
     def setup_ui(self):
@@ -30,11 +30,13 @@ class LoginApp(QWidget):
 
         # Caja central translúcida
         login_box = QWidget(self)
-        login_box.setFixedWidth(350)
+        login_box.setFixedWidth(400)
         login_box.setStyleSheet("""
             QWidget {
-                background: rgba(40, 20, 80, 0.7);
-                border-radius: 18px;
+                background: rgba(60, 20, 100, 0.85);
+                border-radius: 28px;
+                border: 2.5px solid #a259f7;
+                box-shadow: 0 0 32px 0 #7c3aed;
             }
         """)
         box_layout = QVBoxLayout(login_box)
@@ -42,9 +44,9 @@ class LoginApp(QWidget):
         box_layout.setSpacing(18)
 
         # Título
-        title_label = QLabel("Sistema de Registro")
+        title_label = QLabel("Acceso al Sistema")
         title_label.setAlignment(Qt.AlignCenter)
-        title_label.setStyleSheet("color: white; font-size: 22px; font-weight: bold;")
+        title_label.setStyleSheet("color: #7ed6fa; font-size: 32px; font-weight: bold; letter-spacing: 2px; text-shadow: 0 2px 12px #a259f7;")
         box_layout.addWidget(title_label)
 
         # Usuario
@@ -52,16 +54,16 @@ class LoginApp(QWidget):
         self.input_usuario.setPlaceholderText("Usuario")
         self.input_usuario.setStyleSheet("""
             QLineEdit {
-                background: rgba(255,255,255,0.15);
-                border: 1.5px solid #fff;
-                border-radius: 8px;
+                background: rgba(120, 80, 200, 0.18);
+                border: 2px solid #7ed6fa;
+                border-radius: 12px;
                 color: #fff;
-                padding: 8px 12px;
-                font-size: 15px;
+                padding: 12px 16px;
+                font-size: 18px;
             }
             QLineEdit:focus {
-                border: 2px solid #a29bfe;
-                background: rgba(255,255,255,0.25);
+                border: 2.5px solid #ffb6e6;
+                background: rgba(120, 80, 200, 0.28);
             }
         """)
         box_layout.addWidget(self.input_usuario)
@@ -72,16 +74,16 @@ class LoginApp(QWidget):
         self.input_contraseña.setEchoMode(QLineEdit.Password)
         self.input_contraseña.setStyleSheet("""
             QLineEdit {
-                background: rgba(255,255,255,0.15);
-                border: 1.5px solid #fff;
-                border-radius: 8px;
+                background: rgba(120, 80, 200, 0.18);
+                border: 2px solid #ffb6e6;
+                border-radius: 12px;
                 color: #fff;
-                padding: 8px 12px;
-                font-size: 15px;
+                padding: 12px 16px;
+                font-size: 18px;
             }
             QLineEdit:focus {
-                border: 2px solid #a29bfe;
-                background: rgba(255,255,255,0.25);
+                border: 2.5px solid #7ed6fa;
+                background: rgba(120, 80, 200, 0.28);
             }
         """)
         box_layout.addWidget(self.input_contraseña)
@@ -90,16 +92,18 @@ class LoginApp(QWidget):
         self.boton_login = QPushButton("Iniciar Sesión")
         self.boton_login.setStyleSheet("""
             QPushButton {
-                background: #fff;
-                color: #5f27cd;
-                font-size: 17px;
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #7ed6fa, stop:1 #ffb6e6);
+                color: #22223b;
+                font-size: 21px;
                 font-weight: bold;
-                border-radius: 20px;
-                padding: 10px 0;
+                border-radius: 24px;
+                padding: 14px 0;
+                letter-spacing: 1px;
+                box-shadow: 0 2px 16px #a259f7;
             }
             QPushButton:hover {
-                background: #a29bfe;
-                color: #fff;
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #ffb6e6, stop:1 #7ed6fa);
+                color: #7ed6fa;
             }
         """)
         self.boton_login.clicked.connect(self.verificar_login)
@@ -125,7 +129,7 @@ class LoginApp(QWidget):
 
         info_label = QLabel(info_text)
         info_label.setAlignment(Qt.AlignCenter)
-        info_label.setStyleSheet("font-size: 11px; color: #eee;")
+        info_label.setStyleSheet("font-size: 13px; color: #7ed6fa; background: transparent; margin-top: 8px;")
         box_layout.addWidget(info_label)
 
         login_box.setLayout(box_layout)
@@ -157,10 +161,11 @@ class LoginApp(QWidget):
                 if bcrypt.checkpw(contraseña.encode(), hash_guardado.encode()):
                     self.close()
                     rol = rol.strip().lower()
-                    archivo = "menu.py" if "admin" in rol or "gerente" in rol else "ventas_empleados.py"
+                    archivo = "caja_diaria.py" if "admin" in rol or "gerente" in rol else "caja_diariaE.py"
                     try:
                         ruta_menu = os.path.abspath(os.path.join(os.path.dirname(__file__), archivo))
                         subprocess.Popen([sys.executable, ruta_menu, str(id_empleado)])
+                        # Abrir caja_diaria.py para todos los usuarios (ya no necesario, solo se abre el archivo correspondiente)
                     except Exception as e:
                         self.show_message("Error", str(e), "error")
                 else:

@@ -153,47 +153,68 @@ class EstadisticasVentas(QMainWindow):
 
     def aplicar_tema(self):
         """Aplica un tema moderno a la aplicación"""
+        # Paleta basada en la imagen: púrpura profundo, magenta/rosa y acento cian
         self.setStyleSheet("""
             QMainWindow {
-                background-color: #f8f9fa;
+                background: qlineargradient(x1:0,y1:0,x2:1,y2:1, stop:0 #2e0b3a, stop:1 #3a0f5a);
             }
+            /* Group boxes con fondo semitransparente para contraste */
             QGroupBox {
                 font-weight: bold;
-                border: 2px solid #bdc3c7;
-                border-radius: 8px;
+                border: 1px solid rgba(255,255,255,0.08);
+                border-radius: 10px;
                 margin-top: 1ex;
-                padding-top: 10px;
-                background-color: white;
+                padding: 12px;
+                background-color: rgba(255,255,255,0.04);
+                color: #f5f6fa;
             }
             QGroupBox::title {
                 subcontrol-origin: margin;
-                left: 10px;
+                left: 12px;
                 padding: 0 10px 0 10px;
-                color: #2c3e50;
+                color: #ffd6f0; /* rosa suave para títulos */
             }
+            /* Botones principales con gradiente púrpura->magenta y acento cian en hover */
             QPushButton {
-                background-color: #3498db;
-                color: white;
+                background: qlineargradient(x1:0,y1:0,x2:1,y2:0, stop:0 #8e44ad, stop:1 #c099ff);
+                color: #ffffff;
                 border: none;
-                padding: 8px 16px;
-                border-radius: 5px;
-                font-weight: bold;
+                padding: 8px 14px;
+                border-radius: 8px;
+                font-weight: 600;
             }
             QPushButton:hover {
-                background-color: #2980b9;
+                background: qlineargradient(x1:0,y1:0,x2:1,y2:0, stop:0 #6f2a8f, stop:1 #9b59b6);
             }
             QPushButton:pressed {
-                background-color: #21618c;
+                background: qlineargradient(x1:0,y1:0,x2:1,y2:0, stop:0 #4b1a63, stop:1 #7a3f9b);
             }
-            QComboBox, QDateEdit {
-                padding: 5px;
-                border: 1px solid #bdc3c7;
-                border-radius: 4px;
-                background-color: white;
+            /* Controles (combobox, dateedit) con fondo oscuro y texto claro */
+            QComboBox, QDateEdit, QLineEdit {
+                padding: 6px;
+                border: 1px solid rgba(255,255,255,0.08);
+                border-radius: 6px;
+                background-color: rgba(255,255,255,0.03);
+                color: #eef3ff;
             }
+            QComboBox QAbstractItemView {
+                background-color: rgba(20,10,30,0.9);
+                color: #f8f9ff;
+                selection-background-color: rgba(155,89,182,0.5);
+            }
+            /* Etiquetas con color claro */
             QLabel {
-                color: #2c3e50;
+                color: #f1f2f7;
             }
+            /* Tab widget y tablas */
+            QTabWidget::pane { border: none; }
+            QTabBar::tab { background: rgba(0,0,0,0.08); color: #f1f2f7; padding: 8px 14px; border-top-left-radius:8px; border-top-right-radius:8px; }
+            QTabBar::tab:selected { background: qlineargradient(x1:0,y1:0,x2:1,y2:0, stop:0 #7b1fa2, stop:1 #c77ae3); }
+            QTableWidget { background-color: rgba(255,255,255,0.02); color: #ffffff; gridline-color: rgba(255,255,255,0.05); }
+            QHeaderView::section { background: rgba(0,0,0,0.35); color: #fff; padding: 6px; }
+            QTableWidget::item:selected { background: rgba(155,89,182,0.45); color: #fff; }
+            /* Mensajes y cuadros de diálogo: tonos neutros sobre el fondo oscuro */
+            QMessageBox { background-color: rgba(20,10,30,0.95); color: #f3f4f8; }
         """)
 
     def crear_panel_filtros(self, layout):

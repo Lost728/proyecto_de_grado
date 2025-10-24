@@ -67,10 +67,10 @@ class ProductosEliminadosWindow(QMainWindow):
         main_layout.addLayout(buscador_layout)
 
         self.tabla = QTableWidget()
-        self.tabla.setColumnCount(13)
+        self.tabla.setColumnCount(9)
         self.tabla.setHorizontalHeaderLabels([
-            "ID", "Código", "Imagen", "Nombre", "Precio", "Fecha Venc.", "ID Empleado",
-            "Cajas", "Paquetes", "Unidades", "Unid./Paquete", "Paq./Caja", "Acciones"
+            "ID Borrado", "ID Producto", "Código", "Nombre", "Precio", "Stock",
+            "Fecha Venc.", "Fecha Eliminación", "Acciones"
         ])
         self.tabla.horizontalHeader().setStretchLastSection(True)
         main_layout.addWidget(self.tabla)
@@ -86,56 +86,48 @@ class ProductosEliminadosWindow(QMainWindow):
             cursor = conn.cursor()
             if filtro:
                 cursor.execute("""
-                    SELECT id_producto, codigo, imagen, nombre, precio, fecha_venc, id_empleado,
-                           cajas, paquetes, unidades, unidades_por_paquete, paquetes_por_caja
+                    SELECT id_borrado, id_producto, codigo, nombre, precio, stock, fecha_venc, fecha_eliminacion
                     FROM productos_borrados
                     WHERE nombre LIKE ? OR codigo LIKE ?
-                    ORDER BY id_producto DESC
+                    ORDER BY fecha_eliminacion DESC
                 """, (f"%{filtro}%", f"%{filtro}%"))
             else:
                 cursor.execute("""
-                    SELECT id_producto, codigo, imagen, nombre, precio, fecha_venc, id_empleado,
-                           cajas, paquetes, unidades, unidades_por_paquete, paquetes_por_caja
+                    SELECT id_borrado, id_producto, codigo, nombre, precio, stock, fecha_venc, fecha_eliminacion
                     FROM productos_borrados
-                    ORDER BY id_producto DESC
+                    ORDER BY fecha_eliminacion DESC
                 """)
             productos = cursor.fetchall()
             conn.close()
 
             for row_num, row_data in enumerate(productos):
                 self.tabla.insertRow(row_num)
-                # Desempaqueta los datos
-                (id_producto, codigo, imagen, nombre, precio, fecha_venc, id_empleado,
-                 cajas, paquetes, unidades, unidades_por_paquete, paquetes_por_caja) = row_data
+                (id_borrado, id_producto, codigo, nombre, precio, stock, fecha_venc, fecha_eliminacion) = row_data
 
-                self.tabla.setItem(row_num, 0, QTableWidgetItem(str(id_producto)))
-                self.tabla.setItem(row_num, 1, QTableWidgetItem(str(codigo)))
-                # Imagen
-                img_item = QTableWidgetItem()
-                if imagen and os.path.exists(imagen):
-                    from PyQt5.QtGui import QPixmap
-                    pixmap = QPixmap(imagen).scaled(40, 40, Qt.KeepAspectRatio)
-                    img_item.setData(Qt.DecorationRole, pixmap)
-                else:
-                    img_item.setText("[img]")
-                self.tabla.setItem(row_num, 2, img_item)
+                self.tabla.setItem(row_num, 0, QTableWidgetItem(str(id_borrado)))
+                self.tabla.setItem(row_num, 1, QTableWidgetItem(str(id_producto)))
+                self.tabla.setItem(row_num, 2, QTableWidgetItem(str(codigo)))
                 self.tabla.setItem(row_num, 3, QTableWidgetItem(str(nombre)))
                 self.tabla.setItem(row_num, 4, QTableWidgetItem(f"{precio:.2f}"))
-                # Fecha vencimiento
+                self.tabla.setItem(row_num, 5, QTableWidgetItem(str(stock)))
+
                 if fecha_venc:
                     try:
                         fecha = datetime.fromtimestamp(int(fecha_venc)).strftime("%Y-%m-%d")
                     except Exception:
                         fecha = str(fecha_venc)
-                    self.tabla.setItem(row_num, 5, QTableWidgetItem(fecha))
+                    self.tabla.setItem(row_num, 6, QTableWidgetItem(fecha))
                 else:
-                    self.tabla.setItem(row_num, 5, QTableWidgetItem(""))
-                self.tabla.setItem(row_num, 6, QTableWidgetItem(str(id_empleado)))
-                self.tabla.setItem(row_num, 7, QTableWidgetItem(str(cajas)))
-                self.tabla.setItem(row_num, 8, QTableWidgetItem(str(paquetes)))
-                self.tabla.setItem(row_num, 9, QTableWidgetItem(str(unidades)))
-                self.tabla.setItem(row_num, 10, QTableWidgetItem(str(unidades_por_paquete)))
-                self.tabla.setItem(row_num, 11, QTableWidgetItem(str(paquetes_por_caja)))
+                    self.tabla.setItem(row_num, 6, QTableWidgetItem(""))
+                
+                if fecha_eliminacion:
+                    try:
+                        # La fecha de eliminación suele estar ya en formato correcto (YYYY-MM-DD HH:MM:SS)
+                        self.tabla.setItem(row_num, 7, QTableWidgetItem(str(fecha_eliminacion)))
+                    except Exception:
+                        self.tabla.setItem(row_num, 7, QTableWidgetItem(str(fecha_eliminacion)))
+                else:
+                    self.tabla.setItem(row_num, 7, QTableWidgetItem(""))
 
                 # Columna de acciones
                 acciones_widget = QWidget()
@@ -144,16 +136,16 @@ class ProductosEliminadosWindow(QMainWindow):
 
                 btn_restaurar = QPushButton("Restaurar")
                 btn_restaurar.setStyleSheet("background-color: #4CAF50; color: white;")
-                btn_restaurar.clicked.connect(lambda _, rid=id_producto: self.restaurar_producto(rid))
+                btn_restaurar.clicked.connect(lambda _, borrado_id=id_borrado, prod_id=id_producto: self.restaurar_producto(borrado_id, prod_id))
                 acciones_layout.addWidget(btn_restaurar)
 
                 btn_eliminar = QPushButton("Eliminar")
                 btn_eliminar.setStyleSheet("background-color: #e53935; color: white;")
-                btn_eliminar.clicked.connect(lambda _, rid=id_producto: self.eliminar_producto(rid))
+                btn_eliminar.clicked.connect(lambda _, borrado_id=id_borrado: self.eliminar_producto(borrado_id))
                 acciones_layout.addWidget(btn_eliminar)
 
                 acciones_widget.setLayout(acciones_layout)
-                self.tabla.setCellWidget(row_num, 12, acciones_widget)
+                self.tabla.setCellWidget(row_num, 8, acciones_widget)
         except Exception as e:
             self.tabla.setRowCount(0)
             self.tabla.setColumnCount(1)
@@ -165,20 +157,18 @@ class ProductosEliminadosWindow(QMainWindow):
         texto = self.input_busqueda.text().strip()
         self.cargar_productos(filtro=texto)
 
-    def restaurar_producto(self, producto_id):
+    def restaurar_producto(self, borrado_id, producto_id):
         try:
             conn = sqlite3.connect(db_path)
             cursor = conn.cursor()
             # Recuperar datos del producto eliminado
             cursor.execute("""
-                SELECT codigo, imagen, nombre, precio, fecha_venc, id_empleado,
-                       cajas, paquetes, unidades, unidades_por_paquete, paquetes_por_caja
-                FROM productos_borrados WHERE id_producto = ?
-            """, (producto_id,))
+                SELECT codigo, imagen, nombre, precio, stock, fecha_venc, id_empleado
+                FROM productos_borrados WHERE id_borrado = ?
+            """, (borrado_id,))
             producto = cursor.fetchone()
             if producto:
-                (codigo_actual, imagen, nombre, precio, fecha_venc, id_empleado,
-                 cajas, paquetes, unidades, unidades_por_paquete, paquetes_por_caja) = producto
+                (codigo_actual, imagen, nombre, precio, stock, fecha_venc, id_empleado) = producto
 
                 while True:
                     # Pedir al usuario el nuevo código (o dejar el mismo)
@@ -208,15 +198,13 @@ class ProductosEliminadosWindow(QMainWindow):
                         # Código único, proceder a restaurar
                         cursor.execute("""
                             INSERT INTO productos (
-                                codigo, imagen, nombre, precio, fecha_venc, id_empleado,
-                                cajas, paquetes, unidades, unidades_por_paquete, paquetes_por_caja
-                            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                codigo, imagen, nombre, precio, fecha_venc, id_empleado, unidades
+                            ) VALUES (?, ?, ?, ?, ?, ?, ?)
                         """, (
-                            nuevo_codigo, imagen, nombre, precio, fecha_venc, id_empleado,
-                            cajas, paquetes, unidades, unidades_por_paquete, paquetes_por_caja
+                            nuevo_codigo, imagen, nombre, precio, fecha_venc, id_empleado, stock
                         ))
                         # Eliminar de productos_borrados
-                        cursor.execute("DELETE FROM productos_borrados WHERE id_producto = ?", (producto_id,))
+                        cursor.execute("DELETE FROM productos_borrados WHERE id_borrado = ?", (borrado_id,))
                         conn.commit()
                         QMessageBox.information(self, "Restaurado", f"Producto restaurado correctamente con código '{nuevo_codigo}'.")
                         break
@@ -227,7 +215,7 @@ class ProductosEliminadosWindow(QMainWindow):
         except Exception as e:
             QMessageBox.critical(self, "Error", f"No se pudo restaurar el producto: {e}")
 
-    def eliminar_producto(self, producto_id):
+    def eliminar_producto(self, borrado_id):
         reply = QMessageBox.question(
             self,
             "Confirmar eliminación",
@@ -239,7 +227,7 @@ class ProductosEliminadosWindow(QMainWindow):
             try:
                 conn = sqlite3.connect(db_path)
                 cursor = conn.cursor()
-                cursor.execute("DELETE FROM productos_borrados WHERE id_producto = ?", (producto_id,))
+                cursor.execute("DELETE FROM productos_borrados WHERE id_borrado = ?", (borrado_id,))
                 conn.commit()
                 QMessageBox.information(self, "Eliminado", "Producto eliminado permanentemente de eliminados.")
                 self.cargar_productos()
