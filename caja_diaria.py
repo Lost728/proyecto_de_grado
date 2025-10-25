@@ -53,19 +53,37 @@ class CajaDiariaWindow(QMainWindow):
         self.conexion.commit()
 
     def setup_ui(self):
-        # Fondo difuminado
-        import os
-        fondo = os.path.abspath(os.path.join(os.path.dirname(__file__), 'image2.jpg'))
-        if os.path.exists(fondo):
-            from PyQt5.QtGui import QPixmap
-            self._bg_pixmap = QPixmap(fondo)
-            self.bg_label = QLabel(self)
-            self.bg_label.setScaledContents(True)
-            blur = QGraphicsBlurEffect(self.bg_label)
+        # Fondo difuminado desde la base de datos
+        from PyQt5.QtGui import QPixmap
+        def obtener_pixmap_fondo():
+            try:
+                conn = sqlite3.connect(obtener_db_path())
+                cursor = conn.cursor()
+                cursor.execute("SELECT datos FROM imagenes WHERE nombre LIKE '%mar%' LIMIT 1")
+                row = cursor.fetchone()
+                conn.close()
+                if row:
+                    datos = row[0]
+                    pixmap = QPixmap()
+                    pixmap.loadFromData(datos)
+                    return pixmap
+            except Exception:
+                pass
+            return QPixmap()
+
+        pixmap = obtener_pixmap_fondo()
+        self.bg_label = QLabel(self)
+        self.bg_label.setScaledContents(True)
+        self.bg_label.setGeometry(0, 0, self.width(), self.height())
+        if not pixmap.isNull():
+            self.bg_label.setPixmap(pixmap.scaled(self.size(), Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation))
+            blur = QGraphicsBlurEffect()
             blur.setBlurRadius(12)
             self.bg_label.setGraphicsEffect(blur)
-            self.bg_label.setAttribute(Qt.WA_TransparentForMouseEvents)
-            self.bg_label.lower()
+        else:
+            self.bg_label.setStyleSheet("background: #3a0f5a;")
+        self.bg_label.setAttribute(Qt.WA_TransparentForMouseEvents)
+        self.bg_label.lower()
 
         main_widget = QWidget()
         main_layout = QVBoxLayout()
@@ -128,14 +146,11 @@ class CajaDiariaWindow(QMainWindow):
 
     def resizeEvent(self, event):
         # Ajustar el pixmap de fondo cuando la ventana cambie de tamaño
-        try:
-            if hasattr(self, '_bg_pixmap') and self._bg_pixmap and hasattr(self, 'bg_label'):
-                scaled = self._bg_pixmap.scaled(self.size(), Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation)
-                self.bg_label.setPixmap(scaled)
-                self.bg_label.resize(self.size())
-                self.bg_label.lower()
-        except Exception:
-            pass
+        if hasattr(self, 'bg_label'):
+            pixmap = self.bg_label.pixmap()
+            if pixmap:
+                self.bg_label.setPixmap(pixmap.scaled(self.size(), Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation))
+            self.bg_label.setGeometry(0, 0, self.width(), self.height())
         return super().resizeEvent(event)
 
     def verificar_registro_inicial(self):
