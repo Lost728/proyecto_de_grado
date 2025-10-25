@@ -78,42 +78,46 @@ class VerEmpleados(QMainWindow):
         super().__init__()
         self.setWindowTitle("Administrar Empleados")
         self.setGeometry(100, 100, 1100, 600)
-        import os
-        fondo = os.path.abspath(os.path.join(os.path.dirname(__file__), 'mar.jpg')).replace('\\', '/')
-        self.setStyleSheet(f"""
-            QWidget {{
-                background-image: url('{fondo}');
-                background-repeat: no-repeat;
-                background-position: center;
-                background-size: cover;
-                color: #ffffff;
-            }}
-            QPushButton {{
-                background: qlineargradient(x1:0,y1:0,x2:1,y2:0, stop:0 #7ed6fa, stop:1 #ffb6e6);
-                color: #22223b;
-                border-radius: 10px;
-                padding: 6px 10px;
-                font-weight: bold;
-            }}
-            QLineEdit {{
-                background: rgba(0,0,0,0.35);
-                border: 1.8px solid rgba(126,214,250,0.6);
-                border-radius: 8px;
-                padding: 8px;
-                color: #ffffff;
-            }}
-            QTableWidget {{
-                background: rgba(0,0,0,0.45);
-                border-radius: 8px;
-            }}
-            QHeaderView::section {{
-                background: rgba(0,0,0,0.70);
-                color: #ffffff; /* texto blanco para títulos */
-                font-weight: bold;
-                padding: 6px;
-                border: none;
-            }}
-        """)
+        # Fondo desde la base de datos usando QPixmap y QLabel
+        from PyQt5.QtWidgets import QLabel, QGraphicsBlurEffect
+        from PyQt5.QtGui import QPixmap
+        def obtener_pixmap_fondo():
+            try:
+                conn = sqlite3.connect(obtener_db_path())
+                cursor = conn.cursor()
+                cursor.execute("SELECT datos FROM imagenes WHERE nombre LIKE '%mar%' LIMIT 1")
+                row = cursor.fetchone()
+                conn.close()
+                if row:
+                    datos = row[0]
+                    pixmap = QPixmap()
+                    pixmap.loadFromData(datos)
+                    return pixmap
+            except Exception:
+                pass
+            return QPixmap()
+
+        pixmap = obtener_pixmap_fondo()
+        self.bg_label = QLabel(self)
+        self.bg_label.setScaledContents(True)
+        self.bg_label.setGeometry(0, 0, self.width(), self.height())
+        if not pixmap.isNull():
+            self.bg_label.setPixmap(pixmap.scaled(self.size(), Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation))
+            blur = QGraphicsBlurEffect()
+            blur.setBlurRadius(18)
+            self.bg_label.setGraphicsEffect(blur)
+        else:
+            self.bg_label.setStyleSheet("background: #3a0f5a;")
+        self.bg_label.lower()
+
+    def resizeEvent(self, event):
+        # Redimensionar el fondo difuminado al cambiar el tamaño de la ventana
+        if hasattr(self, 'bg_label'):
+            pixmap = self.bg_label.pixmap()
+            if pixmap:
+                self.bg_label.setPixmap(pixmap.scaled(self.size(), Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation))
+            self.bg_label.setGeometry(0, 0, self.width(), self.height())
+        super().resizeEvent(event)
 
         # Layout principal
         main_container = QWidget()
@@ -181,6 +185,12 @@ class VerEmpleados(QMainWindow):
         self.table.setHorizontalHeaderLabels(["ID", "CI", "Nombre", "Apellidos", "Celular", "Rol", "Estado", "Acciones"])
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.table.setSelectionBehavior(QTableWidget.SelectRows)
+        self.table.setStyleSheet("""
+            QTableWidget { background: transparent; color: #ffffff; border: none; }
+            QTableWidget::item { background: transparent; color: #ffffff; }
+            QTableWidget::item:selected { background: rgba(255,255,255,0.08); }
+            QHeaderView::section { background: rgba(0,0,0,0.45); color: #ffffff; border: none; padding: 6px; }
+        """)
         main_layout.addWidget(self.table)
 
         # Cargar datos iniciales
@@ -232,21 +242,77 @@ class VerEmpleados(QMainWindow):
             # Botón de acciones con estilo coherente
             btn_acciones = QPushButton("Opciones")
             btn_acciones.setStyleSheet("padding:6px 10px; border-radius:8px;")
-            # Conectar acciones via menú (mantener funcionalidad)
-            menu = QMenu()
-            action_baja = QAction("Dar de baja", btn_acciones)
-            action_baja.triggered.connect(partial(self.dar_de_baja, empleado[1])) # CI
-            menu.addAction(action_baja)
-            action_editar = QAction("Modificar", btn_acciones)
-            action_editar.triggered.connect(partial(self.modificar_empleado, empleado[0])) # ID
-            menu.addAction(action_editar)
-            action_vacaciones = QAction("Dar vacaciones", btn_acciones)
-            action_vacaciones.triggered.connect(partial(self.dar_vacaciones, empleado[1])) # CI
-            menu.addAction(action_vacaciones)
-            action_reincorporar = QAction("Reincorporar", btn_acciones)
-            action_reincorporar.triggered.connect(partial(self.reincorporar_empleado, empleado[1])) # CI
-            menu.addAction(action_reincorporar)
-            btn_acciones.setMenu(menu)
+            def mostrar_miniventana():
+                from PyQt5.QtWidgets import QDialog, QVBoxLayout, QPushButton, QLabel, QHBoxLayout
+                dialog = QDialog(self)
+                dialog.setWindowTitle("Acciones para empleado")
+                dialog.setFixedWidth(320)
+                dialog.setStyleSheet("""
+                    QDialog {
+                        background: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:1, stop:0 #6a1b9a, stop:1 #311b92);
+                        border-radius: 18px;
+                        border: 2px solid #4AD0FF;
+                    }
+                    QLabel {
+                        color: #E3F6FF;
+                        font-size: 16px;
+                        font-weight: bold;
+                        margin-bottom: 0px;
+                    }
+                    QLabel[ci="true"] {
+                        color: #AEEFFF;
+                        font-size: 13px;
+                        margin-bottom: 10px;
+                    }
+                    QPushButton {
+                        background-color: #4AD0FF;
+                        color: #311b92;
+                        border-radius: 10px;
+                        padding: 8px 0px;
+                        font-size: 15px;
+                        margin: 6px 0px;
+                        border: none;
+                        font-weight: bold;
+                        transition: background 0.2s;
+                    }
+                    QPushButton:hover {
+                        background-color: #81D4FA;
+                        color: #6a1b9a;
+                    }
+                    QPushButton#cancelar {
+                        background-color: #B39DDB;
+                        color: #fff;
+                    }
+                    QPushButton#cancelar:hover {
+                        background-color: #9575CD;
+                    }
+                """)
+                layout = QVBoxLayout(dialog)
+                label_nombre = QLabel(f"Acciones para '{empleado[2]}'")
+                label_nombre.setStyleSheet("margin-bottom: 0px;")
+                layout.addWidget(label_nombre)
+                label_ci = QLabel(f"CI: {empleado[1]}")
+                label_ci.setProperty("ci", True)
+                layout.addWidget(label_ci)
+                btn_baja = QPushButton("Dar de baja")
+                btn_baja.clicked.connect(lambda: (dialog.accept(), self.dar_de_baja(empleado[1])))
+                layout.addWidget(btn_baja)
+                btn_editar = QPushButton("Modificar")
+                btn_editar.clicked.connect(lambda: (dialog.accept(), self.modificar_empleado(empleado[0])))
+                layout.addWidget(btn_editar)
+                btn_vacaciones = QPushButton("Dar vacaciones")
+                btn_vacaciones.clicked.connect(lambda: (dialog.accept(), self.dar_vacaciones(empleado[1])))
+                layout.addWidget(btn_vacaciones)
+                btn_reincorporar = QPushButton("Reincorporar")
+                btn_reincorporar.clicked.connect(lambda: (dialog.accept(), self.reincorporar_empleado(empleado[1])))
+                layout.addWidget(btn_reincorporar)
+                btn_cancelar = QPushButton("Cancelar")
+                btn_cancelar.setObjectName("cancelar")
+                btn_cancelar.clicked.connect(dialog.reject)
+                layout.addWidget(btn_cancelar)
+                dialog.setLayout(layout)
+                dialog.exec_()
+            btn_acciones.clicked.connect(mostrar_miniventana)
             action_layout = QHBoxLayout()
             action_layout.addWidget(btn_acciones)
             action_layout.setContentsMargins(0, 0, 0, 0)
