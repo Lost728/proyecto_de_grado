@@ -17,27 +17,172 @@ class LoginApp(QWidget):
         self.setup_ui()
 
     def setup_ui(self):
-        # Fondo con imagen
-        self.setAutoFillBackground(True)
-        palette = QPalette()
-        pixmap = QPixmap("mar.jpg")
-        palette.setBrush(QPalette.Window, QBrush(pixmap))
-        self.setPalette(palette)
+        from PyQt5.QtWidgets import QLabel, QGraphicsBlurEffect
+        # Fondo con imagen desde la base de datos
+        pixmap = self.obtener_pixmap_fondo()
+        self.bg_label = QLabel(self)
+        self.bg_label.setScaledContents(True)
+        self.bg_label.setGeometry(0, 0, self.width(), self.height())
+        if not pixmap.isNull():
+            self.bg_label.setPixmap(pixmap.scaled(self.size(), Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation))
+            blur = QGraphicsBlurEffect()
+            blur.setBlurRadius(18)
+            self.bg_label.setGraphicsEffect(blur)
+        else:
+            self.bg_label.setStyleSheet("background: #3a0f5a;")
+        self.bg_label.lower()
 
         # Layout principal centrado
         main_layout = QVBoxLayout(self)
         main_layout.setAlignment(Qt.AlignCenter)
 
-        # Caja central translúcida
+        # Caja central translúcida y opaca sobre el fondo
         login_box = QWidget(self)
         login_box.setFixedWidth(400)
+        login_box.setAttribute(Qt.WA_StyledBackground, True)
         login_box.setStyleSheet("""
-            QWidget {
-                background: rgba(60, 20, 100, 0.85);
-                border-radius: 28px;
-                border: 2.5px solid #a259f7;
-                box-shadow: 0 0 32px 0 #7c3aed;
+            background: rgba(60, 20, 100, 0.92);
+            border-radius: 28px;
+            border: 2.5px solid #a259f7;
+            box-shadow: 0 0 32px 0 #7c3aed;
+        """)
+        box_layout = QVBoxLayout(login_box)
+        box_layout.setContentsMargins(30, 30, 30, 30)
+        box_layout.setSpacing(18)
+
+        # Título
+        title_label = QLabel("Acceso al Sistema")
+        title_label.setAlignment(Qt.AlignCenter)
+        title_label.setStyleSheet("color: #7ed6fa; font-size: 32px; font-weight: bold; letter-spacing: 2px; text-shadow: 0 2px 12px #a259f7;")
+        box_layout.addWidget(title_label)
+
+        # Usuario
+        self.input_usuario = QLineEdit()
+        self.input_usuario.setPlaceholderText("Usuario")
+        self.input_usuario.setStyleSheet("""
+            QLineEdit {
+                background: rgba(120, 80, 200, 0.18);
+                border: 2px solid #7ed6fa;
+                border-radius: 12px;
+                color: #fff;
+                padding: 12px 16px;
+                font-size: 18px;
             }
+            QLineEdit:focus {
+                border: 2.5px solid #ffb6e6;
+                background: rgba(120, 80, 200, 0.28);
+            }
+        """)
+        box_layout.addWidget(self.input_usuario)
+
+        # Contraseña
+        self.input_contraseña = QLineEdit()
+        self.input_contraseña.setPlaceholderText("Contraseña")
+        self.input_contraseña.setEchoMode(QLineEdit.Password)
+        self.input_contraseña.setStyleSheet("""
+            QLineEdit {
+                background: rgba(120, 80, 200, 0.18);
+                border: 2px solid #ffb6e6;
+                border-radius: 12px;
+                color: #fff;
+                padding: 12px 16px;
+                font-size: 18px;
+            }
+            QLineEdit:focus {
+                border: 2.5px solid #7ed6fa;
+                background: rgba(120, 80, 200, 0.28);
+            }
+        """)
+        box_layout.addWidget(self.input_contraseña)
+
+        # Botón Login
+        self.boton_login = QPushButton("Iniciar Sesión")
+        self.boton_login.setStyleSheet("""
+            QPushButton {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #7ed6fa, stop:1 #ffb6e6);
+                color: #22223b;
+                font-size: 21px;
+                font-weight: bold;
+                border-radius: 24px;
+                padding: 14px 0;
+                letter-spacing: 1px;
+                box-shadow: 0 2px 16px #a259f7;
+            }
+            QPushButton:hover {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #ffb6e6, stop:1 #7ed6fa);
+                color: #7ed6fa;
+            }
+        """)
+        self.boton_login.clicked.connect(self.verificar_login)
+        box_layout.addWidget(self.boton_login)
+
+        # Obtener números de administradores desde la base de datos
+        try:
+            conn = sqlite3.connect(obtener_db_path())
+            cursor = conn.cursor()
+            cursor.execute("SELECT nombre, celular FROM empleado WHERE rol LIKE '%admin%'")
+            admins = cursor.fetchall()
+            conn.close()
+            if admins:
+                admin_info = "\n".join([f"{nombre}: {celular}" for nombre, celular in admins])
+                info_text = (
+                    "Contacte al administrador si olvidó sus credenciales\n" +
+                    admin_info
+                )
+            else:
+                info_text = "Contacte al administrador si olvidó sus credenciales\n(No hay administradores registrados)"
+        except Exception as e:
+            info_text = "Contacte al administrador si olvidó sus credenciales\n(No se pudo obtener el número)"
+
+        info_label = QLabel(info_text)
+        info_label.setAlignment(Qt.AlignCenter)
+        info_label.setStyleSheet("font-size: 13px; color: #7ed6fa; background: transparent; margin-top: 8px;")
+        box_layout.addWidget(info_label)
+
+        login_box.setLayout(box_layout)
+        main_layout.addWidget(login_box, alignment=Qt.AlignCenter)
+
+        self.input_usuario.returnPressed.connect(self.verificar_login)
+        self.input_contraseña.returnPressed.connect(self.verificar_login)
+
+    def resizeEvent(self, event):
+        # Redimensionar el fondo difuminado al cambiar el tamaño de la ventana
+        if hasattr(self, 'bg_label'):
+            pixmap = self.obtener_pixmap_fondo()
+            if not pixmap.isNull():
+                self.bg_label.setPixmap(pixmap.scaled(self.size(), Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation))
+        self.bg_label.setGeometry(0, 0, self.width(), self.height())
+        super().resizeEvent(event)
+
+    def obtener_pixmap_fondo(self):
+        try:
+            conn = sqlite3.connect(obtener_db_path())
+            cursor = conn.cursor()
+            cursor.execute("SELECT datos FROM imagenes WHERE nombre LIKE '%mar%' LIMIT 1")
+            row = cursor.fetchone()
+            conn.close()
+            if row:
+                datos = row[0]
+                pixmap = QPixmap()
+                pixmap.loadFromData(datos)
+                return pixmap
+        except Exception:
+            pass
+        return QPixmap()
+
+        # Layout principal centrado
+        main_layout = QVBoxLayout(self)
+        main_layout.setAlignment(Qt.AlignCenter)
+
+        # Caja central translúcida y opaca sobre el fondo
+        login_box = QWidget(self)
+        login_box.setFixedWidth(400)
+        login_box.setAttribute(Qt.WA_StyledBackground, True)
+        login_box.setStyleSheet("""
+            background: rgba(60, 20, 100, 0.92);
+            border-radius: 28px;
+            border: 2.5px solid #a259f7;
+            box-shadow: 0 0 32px 0 #7c3aed;
         """)
         box_layout = QVBoxLayout(login_box)
         box_layout.setContentsMargins(30, 30, 30, 30)
