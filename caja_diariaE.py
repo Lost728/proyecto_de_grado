@@ -3,7 +3,7 @@ import sqlite3
 import os
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout,
-    QLabel, QLineEdit, QPushButton, QMessageBox, QFormLayout, QComboBox
+    QLabel, QLineEdit, QPushButton, QMessageBox, QFormLayout, QComboBox, QGraphicsBlurEffect
 )
 from PyQt5.QtCore import Qt
 from datetime import datetime
@@ -53,14 +53,53 @@ class CajaDiariaWindow(QMainWindow):
         self.conexion.commit()
 
     def setup_ui(self):
+        # Fondo difuminado desde la base de datos
+        from PyQt5.QtGui import QPixmap
+        def obtener_pixmap_fondo():
+            try:
+                conn = sqlite3.connect(obtener_db_path())
+                cursor = conn.cursor()
+                cursor.execute("SELECT datos FROM imagenes WHERE nombre LIKE '%mar%' LIMIT 1")
+                row = cursor.fetchone()
+                conn.close()
+                if row:
+                    datos = row[0]
+                    pixmap = QPixmap()
+                    pixmap.loadFromData(datos)
+                    return pixmap
+            except Exception:
+                pass
+            return QPixmap()
+
+        pixmap = obtener_pixmap_fondo()
+        self.bg_label = QLabel(self)
+        self.bg_label.setScaledContents(True)
+        self.bg_label.setGeometry(0, 0, self.width(), self.height())
+        if not pixmap.isNull():
+            self.bg_label.setPixmap(pixmap.scaled(self.size(), Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation))
+            blur = QGraphicsBlurEffect()
+            blur.setBlurRadius(12)
+            self.bg_label.setGraphicsEffect(blur)
+        else:
+            self.bg_label.setStyleSheet("background: #3a0f5a;")
+        self.bg_label.setAttribute(Qt.WA_TransparentForMouseEvents)
+        self.bg_label.lower()
+
         main_widget = QWidget()
         main_layout = QVBoxLayout()
         main_widget.setLayout(main_layout)
         self.setCentralWidget(main_widget)
 
+        # Contenedor centrado (horiz. y vert.)
+        content_widget = QWidget()
+        content_layout = QVBoxLayout()
+        content_layout.setAlignment(Qt.AlignCenter)
+        content_widget.setLayout(content_layout)
+
         self.label_estado = QLabel("Registro de caja para el día: " + self.fecha)
         self.label_estado.setAlignment(Qt.AlignCenter)
-        main_layout.addWidget(self.label_estado)
+        self.label_estado.setStyleSheet("color:#ffffff; font-weight:bold; font-size:16px;")
+        content_layout.addWidget(self.label_estado, alignment=Qt.AlignCenter)
 
         self.form_layout = QFormLayout()
         # Combo de empleados
@@ -68,29 +107,51 @@ class CajaDiariaWindow(QMainWindow):
         empleados = self.obtener_empleados()
         for id_emp, nombre, rol in empleados:
             self.combo_empleado.addItem(f"{nombre} ({rol}) [ID: {id_emp}]", id_emp)
-        self.form_layout.addRow("Empleado:", self.combo_empleado)
+        self.combo_empleado.setStyleSheet("background: rgba(0,0,0,0.35); color:#fff; border-radius:8px; padding:6px;")
+        label_empleado = QLabel("Empleado:")
+        label_empleado.setStyleSheet("color:#ffffff;")
+        self.form_layout.addRow(label_empleado, self.combo_empleado)
         # Campo monto inicial
         self.input_monto_inicial = QLineEdit()
         self.input_monto_inicial.setPlaceholderText("Monto inicial de la caja")
-        self.form_layout.addRow("Monto inicial:", self.input_monto_inicial)
-        main_layout.addLayout(self.form_layout)
+        self.input_monto_inicial.setStyleSheet("background: rgba(0,0,0,0.35); color:#fff; border-radius:8px; padding:6px;")
+        label_monto = QLabel("Monto inicial:")
+        label_monto.setStyleSheet("color:#ffffff;")
+        self.form_layout.addRow(label_monto, self.input_monto_inicial)
+        # Añadir form_layout al content_layout (centrado)
+        form_container = QWidget()
+        form_container.setLayout(self.form_layout)
+        content_layout.addWidget(form_container, alignment=Qt.AlignCenter)
 
+        btn_style = "background: qlineargradient(x1:0,y1:0,x2:1,y2:0, stop:0 #7ed6fa, stop:1 #ffb6e6); color:#22223b; border-radius:10px; padding:8px;"
         self.btn_registrar_inicial = QPushButton("Registrar inicio de caja")
+        self.btn_registrar_inicial.setStyleSheet(btn_style)
         self.btn_registrar_inicial.clicked.connect(self.registrar_inicio_caja)
-        main_layout.addWidget(self.btn_registrar_inicial)
+        content_layout.addWidget(self.btn_registrar_inicial, alignment=Qt.AlignCenter)
 
-        self.btn_abrir_ventas = QPushButton("Ir a ventas")
-        self.btn_abrir_ventas.clicked.connect(self.abrir_ventas)
-        main_layout.addWidget(self.btn_abrir_ventas)
+        self.btn_omitir = QPushButton("Omitir registro de caja")
+        self.btn_omitir.setStyleSheet(btn_style)
+        self.btn_omitir.clicked.connect(self.omitir_registro)
+        content_layout.addWidget(self.btn_omitir, alignment=Qt.AlignCenter)
 
-    def abrir_ventas(self):
-        id_empleado = self.combo_empleado.currentData()
-        import subprocess
-        import sys
-        import os
-        ruta_ventas = os.path.abspath(os.path.join(os.path.dirname(__file__), "ventas_empleados.py"))
-        subprocess.Popen([sys.executable, ruta_ventas, str(id_empleado)])
-        self.close()
+        self.btn_ir_menu = QPushButton("Ir a menú principal")
+        self.btn_ir_menu.setStyleSheet(btn_style)
+        self.btn_ir_menu.clicked.connect(self.abrir_menu)
+        content_layout.addWidget(self.btn_ir_menu, alignment=Qt.AlignCenter)
+
+        # Centrar verticalmente: agregar stretch arriba y abajo
+        main_layout.addStretch(1)
+        main_layout.addWidget(content_widget, alignment=Qt.AlignCenter)
+        main_layout.addStretch(1)
+
+    def resizeEvent(self, event):
+        # Ajustar el pixmap de fondo cuando la ventana cambie de tamaño
+        if hasattr(self, 'bg_label'):
+            pixmap = self.bg_label.pixmap()
+            if pixmap:
+                self.bg_label.setPixmap(pixmap.scaled(self.size(), Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation))
+            self.bg_label.setGeometry(0, 0, self.width(), self.height())
+        return super().resizeEvent(event)
 
     def verificar_registro_inicial(self):
         id_empleado = self.combo_empleado.currentData()
@@ -122,11 +183,23 @@ class CajaDiariaWindow(QMainWindow):
             import subprocess
             import sys
             import os
-            ruta_ventas = os.path.abspath(os.path.join(os.path.dirname(__file__), "ventas_empleados.py"))
-            subprocess.Popen([sys.executable, ruta_ventas, str(id_empleado)])
+            ruta_menu = os.path.abspath(os.path.join(os.path.dirname(__file__), "menu.py"))
+            subprocess.Popen([sys.executable, ruta_menu, str(id_empleado)])
             self.close()
         except Exception as e:
             QMessageBox.critical(self, "Error", f"No se pudo registrar el inicio de la caja: {str(e)}")
+
+    def omitir_registro(self):
+        self.abrir_menu()
+
+    def abrir_menu(self):
+        id_empleado = self.combo_empleado.currentData()
+        import subprocess
+        import sys
+        import os
+        ruta_menu = os.path.abspath(os.path.join(os.path.dirname(__file__), "menu.py"))
+        subprocess.Popen([sys.executable, ruta_menu, str(id_empleado)])
+        self.close()
 
     def closeEvent(self, event):
         self.conexion.close()
@@ -135,5 +208,5 @@ class CajaDiariaWindow(QMainWindow):
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     window = CajaDiariaWindow()
-    window.show()
+    window.showMaximized()
     sys.exit(app.exec_())
