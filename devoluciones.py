@@ -23,35 +23,50 @@ class DevolucionesWindow(QMainWindow):
     def _setup_ui(self):
         central = QWidget()
         main_layout = QVBoxLayout(central)
+        # Fondo gradiente púrpura-azul
+        central.setStyleSheet("""
+            background: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:1, stop:0 #6a1b9a, stop:1 #311b92);
+        """)
 
         # Formulario de devolución
         self.form_layout = QFormLayout()
+        self.form_layout.setFormAlignment(Qt.AlignCenter)
+        self.form_layout.setLabelAlignment(Qt.AlignRight)
         # Selección de producto
         self.combo_producto = QComboBox()
         productos = self.obtener_productos()
         for id_prod, nombre in productos:
             self.combo_producto.addItem(f"{nombre} [ID: {id_prod}]", id_prod)
-        self.form_layout.addRow("Producto:", self.combo_producto)
+        self.combo_producto.setStyleSheet("background: rgba(0,0,0,0.25); color:#E3F6FF; border-radius:8px; padding:6px;")
+        self.form_layout.addRow("<span style='color:#AEEFFF;'>Producto:</span>", self.combo_producto)
         # Cantidad
         self.spin_cantidad = QSpinBox()
         self.spin_cantidad.setMinimum(1)
         self.spin_cantidad.setMaximum(1000)
-        self.form_layout.addRow("Cantidad:", self.spin_cantidad)
+        self.spin_cantidad.setStyleSheet("background: rgba(0,0,0,0.25); color:#E3F6FF; border-radius:8px; padding:6px;")
+        self.form_layout.addRow("<span style='color:#AEEFFF;'>Cantidad:</span>", self.spin_cantidad)
         # Motivo
         self.input_motivo = QTextEdit()
         self.input_motivo.setPlaceholderText("Motivo de la devolución")
-        self.form_layout.addRow("Motivo:", self.input_motivo)
+        self.input_motivo.setStyleSheet("background: rgba(0,0,0,0.25); color:#E3F6FF; border-radius:8px; padding:6px;")
+        self.form_layout.addRow("<span style='color:#AEEFFF;'>Motivo:</span>", self.input_motivo)
         # Empleado
         self.combo_empleado = QComboBox()
         empleados = self.obtener_empleados()
         for id_emp, nombre in empleados:
             self.combo_empleado.addItem(f"{nombre} [ID: {id_emp}]", id_emp)
-        self.form_layout.addRow("Empleado:", self.combo_empleado)
+        self.combo_empleado.setStyleSheet("background: rgba(0,0,0,0.25); color:#E3F6FF; border-radius:8px; padding:6px;")
+        self.form_layout.addRow("<span style='color:#AEEFFF;'>Empleado:</span>", self.combo_empleado)
         # Botón registrar
         self.btn_registrar = QPushButton("Registrar devolución")
+        self.btn_registrar.setStyleSheet("background-color: #4AD0FF; color: #311b92; border-radius: 10px; padding: 8px; font-weight: bold; font-size: 15px;")
         self.btn_registrar.clicked.connect(self.registrar_devolucion)
         self.form_layout.addRow(self.btn_registrar)
-        self.setLayout(self.form_layout)
+
+        form_container = QWidget()
+        form_container.setLayout(self.form_layout)
+        form_container.setStyleSheet("background: rgba(255,255,255,0.03); border-radius: 16px; padding: 18px;")
+        main_layout.addWidget(form_container, alignment=Qt.AlignCenter)
 
         # Tabla de devoluciones
         self.tabla = QTableWidget()
@@ -60,11 +75,17 @@ class DevolucionesWindow(QMainWindow):
             "ID", "Producto", "Cantidad", "Motivo", "Fecha", "Empleado"
         ])
         self.tabla.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.tabla.setStyleSheet("""
+            QTableWidget { background: transparent; color: #E3F6FF; border: none; }
+            QTableWidget::item { background: transparent; color: #E3F6FF; }
+            QTableWidget::item:selected { background: rgba(74,208,255,0.12); }
+            QHeaderView::section { background: rgba(106,27,154,0.45); color: #AEEFFF; border: none; padding: 6px; }
+        """)
         main_layout.addWidget(self.tabla)
 
         # Botón para volver al menú principal
         btn_menu = QPushButton("Menú Principal")
-        btn_menu.setStyleSheet("background-color: #FFD700; color: black; font-weight: bold; padding: 8px 15px; border-radius: 5px;")
+        btn_menu.setStyleSheet("background-color: #4AD0FF; color: #311b92; font-weight: bold; padding: 8px 15px; border-radius: 10px; font-size: 15px;")
         btn_menu.clicked.connect(self.ir_menu_principal)
         main_layout.addWidget(btn_menu, alignment=Qt.AlignLeft)
 
@@ -114,7 +135,7 @@ class DevolucionesWindow(QMainWindow):
                 self.tabla.setItem(row_num, col_num, QTableWidgetItem(str(data)))
             # Botón reintegrar
             btn_reintegrar = QPushButton("Reintegrar")
-            btn_reintegrar.setStyleSheet("background-color: #0984e3; color: white; font-size: 13px;")
+            btn_reintegrar.setStyleSheet("background-color: #4AD0FF; color: #311b92; font-size: 14px; border-radius: 8px; font-weight: bold;")
             btn_reintegrar.clicked.connect(lambda _, id_dev=row_data[0], cant=row_data[2], prod=row_data[1]: self.reintegrar_devolucion(id_dev, cant, prod))
             self.tabla.setCellWidget(row_num, self.tabla.columnCount()-1, btn_reintegrar)
 
