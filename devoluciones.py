@@ -23,50 +23,41 @@ class DevolucionesWindow(QMainWindow):
     def _setup_ui(self):
         central = QWidget()
         main_layout = QVBoxLayout(central)
-        # Fondo gradiente púrpura-azul
-        central.setStyleSheet("""
-            background: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:1, stop:0 #6a1b9a, stop:1 #311b92);
-        """)
+        # Fondo con imagen desde la base de datos
+        from PyQt5.QtGui import QPixmap
+        from PyQt5.QtWidgets import QLabel, QGraphicsBlurEffect
+        import sqlite3
+        def obtener_pixmap_fondo():
+            try:
+                conn = sqlite3.connect(DB_PATH)
+                cursor = conn.cursor()
+                cursor.execute("SELECT datos FROM imagenes WHERE nombre LIKE '%mar%' LIMIT 1")
+                row = cursor.fetchone()
+                conn.close()
+                if row:
+                    datos = row[0]
+                    pixmap = QPixmap()
+                    pixmap.loadFromData(datos)
+                    return pixmap
+            except Exception:
+                pass
+            return QPixmap()
 
-        # Formulario de devolución
-        self.form_layout = QFormLayout()
-        self.form_layout.setFormAlignment(Qt.AlignCenter)
-        self.form_layout.setLabelAlignment(Qt.AlignRight)
-        # Selección de producto
-        self.combo_producto = QComboBox()
-        productos = self.obtener_productos()
-        for id_prod, nombre in productos:
-            self.combo_producto.addItem(f"{nombre} [ID: {id_prod}]", id_prod)
-        self.combo_producto.setStyleSheet("background: rgba(0,0,0,0.25); color:#E3F6FF; border-radius:8px; padding:6px;")
-        self.form_layout.addRow("<span style='color:#AEEFFF;'>Producto:</span>", self.combo_producto)
-        # Cantidad
-        self.spin_cantidad = QSpinBox()
-        self.spin_cantidad.setMinimum(1)
-        self.spin_cantidad.setMaximum(1000)
-        self.spin_cantidad.setStyleSheet("background: rgba(0,0,0,0.25); color:#E3F6FF; border-radius:8px; padding:6px;")
-        self.form_layout.addRow("<span style='color:#AEEFFF;'>Cantidad:</span>", self.spin_cantidad)
-        # Motivo
-        self.input_motivo = QTextEdit()
-        self.input_motivo.setPlaceholderText("Motivo de la devolución")
-        self.input_motivo.setStyleSheet("background: rgba(0,0,0,0.25); color:#E3F6FF; border-radius:8px; padding:6px;")
-        self.form_layout.addRow("<span style='color:#AEEFFF;'>Motivo:</span>", self.input_motivo)
-        # Empleado
-        self.combo_empleado = QComboBox()
-        empleados = self.obtener_empleados()
-        for id_emp, nombre in empleados:
-            self.combo_empleado.addItem(f"{nombre} [ID: {id_emp}]", id_emp)
-        self.combo_empleado.setStyleSheet("background: rgba(0,0,0,0.25); color:#E3F6FF; border-radius:8px; padding:6px;")
-        self.form_layout.addRow("<span style='color:#AEEFFF;'>Empleado:</span>", self.combo_empleado)
-        # Botón registrar
-        self.btn_registrar = QPushButton("Registrar devolución")
-        self.btn_registrar.setStyleSheet("background-color: #4AD0FF; color: #311b92; border-radius: 10px; padding: 8px; font-weight: bold; font-size: 15px;")
-        self.btn_registrar.clicked.connect(self.registrar_devolucion)
-        self.form_layout.addRow(self.btn_registrar)
+        pixmap = obtener_pixmap_fondo()
+        self.bg_label = QLabel(self)
+        self.bg_label.setScaledContents(True)
+        self.bg_label.setGeometry(0, 0, self.width(), self.height())
+        if not pixmap.isNull():
+            self.bg_label.setPixmap(pixmap.scaled(self.size(), Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation))
+            blur = QGraphicsBlurEffect()
+            blur.setBlurRadius(14)
+            self.bg_label.setGraphicsEffect(blur)
+        else:
+            self.bg_label.setStyleSheet("background: #6a1b9a;")
+        self.bg_label.setAttribute(Qt.WA_TransparentForMouseEvents)
+        self.bg_label.lower()
 
-        form_container = QWidget()
-        form_container.setLayout(self.form_layout)
-        form_container.setStyleSheet("background: rgba(255,255,255,0.03); border-radius: 16px; padding: 18px;")
-        main_layout.addWidget(form_container, alignment=Qt.AlignCenter)
+        # ...eliminar formulario de registro de devoluciones...
 
         # Tabla de devoluciones
         self.tabla = QTableWidget()
@@ -90,6 +81,15 @@ class DevolucionesWindow(QMainWindow):
         main_layout.addWidget(btn_menu, alignment=Qt.AlignLeft)
 
         self.setCentralWidget(central)
+
+    def resizeEvent(self, event):
+        # Ajustar el pixmap de fondo cuando la ventana cambie de tamaño
+        if hasattr(self, 'bg_label'):
+            pixmap = self.bg_label.pixmap()
+            if pixmap:
+                self.bg_label.setPixmap(pixmap.scaled(self.size(), Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation))
+            self.bg_label.setGeometry(0, 0, self.width(), self.height())
+        return super().resizeEvent(event)
 
     def obtener_productos(self):
         self.cursor.execute("SELECT id_producto, nombre FROM productos")
