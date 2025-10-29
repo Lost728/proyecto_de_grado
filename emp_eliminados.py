@@ -4,6 +4,7 @@ from PyQt5.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QTableWidget, QTableWidgetItem,
     QPushButton, QMessageBox, QHeaderView, QHBoxLayout, QLineEdit
 )
+from PyQt5.QtCore import Qt
 from fpdf import FPDF
 import tempfile
 import os
@@ -12,43 +13,100 @@ class ReporteEmpleadosRetirados(QWidget):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Reporte de Empleados Retirados")
-        self.setGeometry(100, 100, 1000, 600)
-        self.layout = QVBoxLayout()
-        self.setLayout(self.layout)
-        
+        self.setMinimumSize(1000, 600)
+
+        # Fondo con imagen desde la base de datos (estilo devoluciones.py)
+        from PyQt5.QtGui import QPixmap
+        from PyQt5.QtWidgets import QLabel, QGraphicsBlurEffect
+        from PyQt5.QtCore import Qt
+        def obtener_pixmap_fondo():
+            try:
+                conn = sqlite3.connect("pruebas.db")
+                cursor = conn.cursor()
+                cursor.execute("SELECT datos FROM imagenes WHERE nombre LIKE '%mar%' LIMIT 1")
+                row = cursor.fetchone()
+                conn.close()
+                if row:
+                    datos = row[0]
+                    pixmap = QPixmap()
+                    pixmap.loadFromData(datos)
+                    return pixmap
+            except Exception:
+                pass
+            return QPixmap()
+
+        pixmap = obtener_pixmap_fondo()
+        self.bg_label = QLabel(self)
+        self.bg_label.setScaledContents(True)
+        self.bg_label.setGeometry(0, 0, self.width(), self.height())
+        if not pixmap.isNull():
+            self.bg_label.setPixmap(pixmap.scaled(self.size(), Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation))
+            blur = QGraphicsBlurEffect()
+            blur.setBlurRadius(14)
+            self.bg_label.setGraphicsEffect(blur)
+        else:
+            self.bg_label.setStyleSheet("background: #6a1b9a;")
+        self.bg_label.setAttribute(Qt.WA_TransparentForMouseEvents)
+        self.bg_label.lower()
+
+        # Layout principal y widgets
+        central = QWidget()
+        main_layout = QVBoxLayout(central)
+        self.setLayout(main_layout)
+
+        # Buscador
         buscador_layout = QHBoxLayout()
         self.input_busqueda = QLineEdit()
         self.input_busqueda.setPlaceholderText("Buscar por nombre o CI...")
+        self.input_busqueda.setStyleSheet("background: #E3F6FF; color: #311b92; border-radius: 8px; padding: 6px; font-size: 15px;")
         btn_buscar = QPushButton("Buscar")
+        btn_buscar.setStyleSheet("background-color: #4AD0FF; color: #311b92; font-weight: bold; padding: 8px 15px; border-radius: 10px; font-size: 15px;")
         btn_buscar.clicked.connect(self.buscar_empleados)
-        self.input_busqueda.returnPressed.connect(self.buscar_empleados)
         buscador_layout.addWidget(self.input_busqueda)
         buscador_layout.addWidget(btn_buscar)
-        # Botón para volver atrás
-        self.boton_volver = QPushButton("Volver a Buscar Empleado")
-        self.boton_volver.clicked.connect(self.volver_a_buscar_empleado)
-        buscador_layout.addWidget(self.boton_volver)
-        # Botón para ir a menú principal
-        self.boton_menu = QPushButton("Menú Principal")
-        self.boton_menu.clicked.connect(self.ir_menu_principal)
-        buscador_layout.addWidget(self.boton_menu)
-        self.layout.addLayout(buscador_layout)
+        main_layout.addLayout(buscador_layout)
 
-        # Tabla de empleados
+        # Tabla de empleados eliminados
         self.tabla = QTableWidget()
         self.tabla.setColumnCount(7)
         self.tabla.setHorizontalHeaderLabels([
             "CI", "Nombre", "Celular", "Rol", "Fecha de Creación", "Fecha de Borrado", "Acciones"
         ])
         self.tabla.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-        self.layout.addWidget(self.tabla)
+        self.tabla.setStyleSheet("""
+            QTableWidget { background: transparent; color: #E3F6FF; border: none; }
+            QTableWidget::item { background: transparent; color: #E3F6FF; }
+            QTableWidget::item:selected { background: rgba(74,208,255,0.12); }
+            QHeaderView::section { background: rgba(106,27,154,0.45); color: #AEEFFF; border: none; padding: 6px; }
+        """)
+        main_layout.addWidget(self.tabla)
 
-        # Botón de PDF
-        self.boton_pdf = QPushButton("Previsualizar PDF")
-        self.boton_pdf.clicked.connect(self.generar_pdf)
-        self.layout.addWidget(self.boton_pdf)
+        # Botones inferiores
+        botones_layout = QHBoxLayout()
+        btn_menu = QPushButton("Menú Principal")
+        btn_menu.setStyleSheet("background-color: #4AD0FF; color: #311b92; font-weight: bold; padding: 8px 15px; border-radius: 10px; font-size: 15px;")
+        btn_menu.clicked.connect(self.ir_menu_principal)
+        btn_volver = QPushButton("Volver a Buscar Empleado")
+        btn_volver.setStyleSheet("background-color: #AEEFFF; color: #311b92; font-weight: bold; padding: 8px 15px; border-radius: 10px; font-size: 15px;")
+        btn_volver.clicked.connect(self.volver_a_buscar_empleado)
+        btn_pdf = QPushButton("Generar PDF")
+        btn_pdf.setStyleSheet("background-color: #4AD0FF; color: #311b92; font-weight: bold; padding: 8px 15px; border-radius: 10px; font-size: 15px;")
+        btn_pdf.clicked.connect(self.generar_pdf)
+        botones_layout.addWidget(btn_menu)
+        botones_layout.addWidget(btn_volver)
+        botones_layout.addWidget(btn_pdf)
+        main_layout.addLayout(botones_layout)
 
         self.cargar_datos()
+        self.setCentralWidget = self.setLayout  # Para compatibilidad con QMainWindow si se usa
+    def resizeEvent(self, event):
+        # Ajustar el pixmap de fondo cuando la ventana cambie de tamaño
+        if hasattr(self, 'bg_label'):
+            pixmap = self.bg_label.pixmap()
+            if pixmap:
+                self.bg_label.setPixmap(pixmap.scaled(self.size(), Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation))
+            self.bg_label.setGeometry(0, 0, self.width(), self.height())
+        return super().resizeEvent(event)
 
     def ir_menu_principal(self):
         """Ir a menu.py"""
@@ -93,16 +151,18 @@ class ReporteEmpleadosRetirados(QWidget):
         for fila_idx, fila in enumerate(datos):
             ci = fila[1]
             for col_idx in range(1, len(fila)):
-                self.tabla.setItem(fila_idx, col_idx - 1, QTableWidgetItem(str(fila[col_idx])))
+                item = QTableWidgetItem(str(fila[col_idx]))
+                item.setForeground(Qt.white)
+                self.tabla.setItem(fila_idx, col_idx - 1, item)
 
-            # Crear botones
+            # Crear botones con estilo moderno
             layout_acciones = QHBoxLayout()
             btn_restaurar = QPushButton("Restaurar")
-            btn_restaurar.setStyleSheet("background-color: #4CAF50; color: white;")
+            btn_restaurar.setStyleSheet("background-color: #4AD0FF; color: #311b92; font-size: 14px; border-radius: 8px; font-weight: bold;")
             btn_restaurar.clicked.connect(lambda _, ci=ci: self.restaurar_empleado(ci))
 
             btn_borrar = QPushButton("Borrar Definitivamente")
-            btn_borrar.setStyleSheet("background-color: #f44336; color: white;")
+            btn_borrar.setStyleSheet("background-color: #f44336; color: #E3F6FF; font-size: 14px; border-radius: 8px; font-weight: bold;")
             btn_borrar.clicked.connect(lambda _, ci=ci: self.borrar_definitivo(ci))
 
             contenedor_botones = QWidget()
