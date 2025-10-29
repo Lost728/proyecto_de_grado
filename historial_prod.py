@@ -15,19 +15,96 @@ class HistorialProducto(QWidget):
         self.db_path = "pruebas.db"
         self.codigo_producto = codigo_producto
 
+        # Fondo con imagen 'mar' desde la base de datos (estilo devoluciones.py)
+        from PyQt5.QtGui import QPixmap
+        from PyQt5.QtWidgets import QLabel, QGraphicsBlurEffect
+        def obtener_pixmap_fondo():
+            try:
+                conn = sqlite3.connect(self.db_path)
+                cursor = conn.cursor()
+                cursor.execute("SELECT datos FROM imagenes WHERE nombre LIKE '%mar%' LIMIT 1")
+                row = cursor.fetchone()
+                conn.close()
+                if row:
+                    datos = row[0]
+                    pixmap = QPixmap()
+                    pixmap.loadFromData(datos)
+                    return pixmap
+            except Exception:
+                pass
+            return QPixmap()
+
+        pixmap = obtener_pixmap_fondo()
+        self.bg_label = QLabel(self)
+        self.bg_label.setScaledContents(True)
+        self.bg_label.setGeometry(0, 0, self.width(), self.height())
+        if not pixmap.isNull():
+            self.bg_label.setPixmap(pixmap.scaled(self.size(), Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation))
+            blur = QGraphicsBlurEffect()
+            blur.setBlurRadius(14)
+            self.bg_label.setGraphicsEffect(blur)
+        else:
+            self.bg_label.setStyleSheet("background: #6a1b9a;")
+        self.bg_label.setAttribute(Qt.WA_TransparentForMouseEvents)
+        self.bg_label.lower()
+
         layout = QVBoxLayout(self)
 
-        # Título y botón volver
+        # Título y botones con estilo moderno
         top_layout = QHBoxLayout()
         lbl_titulo = QLabel(f"Historial de Movimientos - {codigo_producto}")
-        lbl_titulo.setStyleSheet("font-size: 18px; font-weight: bold;")
+        lbl_titulo.setStyleSheet("font-size: 22px; font-weight: bold; color: #AEEFFF; background: rgba(106,27,154,0.45); padding: 10px 18px; border-radius: 10px;")
         top_layout.addWidget(lbl_titulo)
         top_layout.addStretch()
         btn_volver = QPushButton("Volver")
+        btn_volver.setStyleSheet("background-color: #4AD0FF; color: #311b92; font-weight: bold; padding: 8px 15px; border-radius: 10px; font-size: 15px;")
         btn_volver.clicked.connect(self.volver_a_reporte_prod)
         top_layout.addWidget(btn_volver)
 
         btn_menu = QPushButton("Menú Principal")
+        btn_menu.setStyleSheet("background-color: #AEEFFF; color: #311b92; font-weight: bold; padding: 8px 15px; border-radius: 10px; font-size: 15px;")
+        btn_menu.clicked.connect(self.ir_menu_principal)
+        top_layout.addWidget(btn_menu)
+
+        layout.addLayout(top_layout)
+
+        # Tabla de historial con estilo moderno
+        self.tabla = QTableWidget()
+        self.tabla.setColumnCount(7)
+        self.tabla.setHorizontalHeaderLabels([
+            "ID Movimiento", "Código Producto", "Tipo Movimiento", "Cantidad", "Fecha Movimiento", "Observaciones", "Usuario"
+        ])
+        self.tabla.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.tabla.setAlternatingRowColors(True)
+        self.tabla.setStyleSheet("""
+            QTableWidget { background: transparent; color: #E3F6FF; border: none; font-size: 15px; }
+            QTableWidget::item { background: transparent; color: #E3F6FF; }
+            QTableWidget::item:selected { background: rgba(74,208,255,0.18); color: #AEEFFF; }
+            QHeaderView::section { background: rgba(106,27,154,0.45); color: #AEEFFF; border: none; padding: 8px; font-size: 16px; font-weight: bold; }
+        """)
+        layout.addWidget(self.tabla)
+    def resizeEvent(self, event):
+        # Ajustar el pixmap de fondo cuando la ventana cambie de tamaño
+        if hasattr(self, 'bg_label'):
+            pixmap = self.bg_label.pixmap()
+            if pixmap:
+                self.bg_label.setPixmap(pixmap.scaled(self.size(), Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation))
+            self.bg_label.setGeometry(0, 0, self.width(), self.height())
+        return super().resizeEvent(event)
+
+        # Título y botón volver
+        top_layout = QHBoxLayout()
+        lbl_titulo = QLabel(f"Historial de Movimientos - {codigo_producto}")
+        lbl_titulo.setStyleSheet("font-size: 22px; font-weight: bold; color: #AEEFFF; background: rgba(106,27,154,0.45); padding: 10px 18px; border-radius: 10px;")
+        top_layout.addWidget(lbl_titulo)
+        top_layout.addStretch()
+        btn_volver = QPushButton("Volver")
+        btn_volver.setStyleSheet("background-color: #4AD0FF; color: #311b92; font-weight: bold; padding: 8px 15px; border-radius: 10px; font-size: 15px;")
+        btn_volver.clicked.connect(self.volver_a_reporte_prod)
+        top_layout.addWidget(btn_volver)
+
+        btn_menu = QPushButton("Menú Principal")
+        btn_menu.setStyleSheet("background-color: #AEEFFF; color: #311b92; font-weight: bold; padding: 8px 15px; border-radius: 10px; font-size: 15px;")
         btn_menu.clicked.connect(self.ir_menu_principal)
         top_layout.addWidget(btn_menu)
 
@@ -41,6 +118,12 @@ class HistorialProducto(QWidget):
         ])
         self.tabla.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.tabla.setAlternatingRowColors(True)
+        self.tabla.setStyleSheet("""
+            QTableWidget { background: transparent; color: #E3F6FF; border: none; font-size: 15px; }
+            QTableWidget::item { background: transparent; color: #E3F6FF; }
+            QTableWidget::item:selected { background: rgba(74,208,255,0.18); color: #AEEFFF; }
+            QHeaderView::section { background: rgba(106,27,154,0.45); color: #AEEFFF; border: none; padding: 8px; font-size: 16px; font-weight: bold; }
+        """)
         layout.addWidget(self.tabla)
 
         self.cargar_historial()
