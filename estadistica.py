@@ -131,25 +131,58 @@ class EstadisticasVentas(QMainWindow):
         """)
         main_layout.addWidget(titulo)
         
-    # Panel de controles (botones)
+        # Panel de controles (botones)
         self.crear_panel_controles(main_layout)
 
-    # Panel de filtros
+        # Panel de filtros
         self.crear_panel_filtros(main_layout)
 
-    # Splitter para dividir contenido
-        splitter = QSplitter(Qt.Vertical)
-        main_layout.addWidget(splitter)
+        # Splitter para dividir contenido
+        self.splitter = QSplitter(Qt.Vertical)
+        main_layout.addWidget(self.splitter)
 
-    # Panel de resumen estadístico
-        self.crear_panel_resumen(splitter)
+        # Panel de resumen estadístico
+        self.crear_panel_resumen(self.splitter)
 
-    # Panel de gráficos
-        self.crear_panel_graficos(splitter)
+        # Tabla de estadísticas con estilo moderno
+        self.crear_tabla_estadistica(self.splitter)
 
-    # Configurar proporciones del splitter
-        splitter.setStretchFactor(0, 1)
-        splitter.setStretchFactor(1, 3)
+        # Panel de gráficos
+        self.crear_panel_graficos(self.splitter)
+    def crear_tabla_estadistica(self, splitter):
+        """Crea la tabla principal de estadísticas con estilo moderno y la llena automáticamente"""
+        from PyQt5.QtWidgets import QTableWidget, QHeaderView, QTableWidgetItem
+        self.tabla = QTableWidget()
+        self.tabla.setColumnCount(6)
+        self.tabla.setHorizontalHeaderLabels([
+            "Fecha", "Producto", "Cantidad", "Precio Unitario", "Valor Total", "Usuario"
+        ])
+        self.tabla.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.tabla.setStyleSheet("""
+            QTableWidget { background: transparent; color: #E3F6FF; border: none; font-size: 15px; selection-background-color: rgba(74,208,255,0.12); }
+            QTableWidget::item { background: transparent; color: #E3F6FF; font-size: 15px; }
+            QTableWidget::item:selected { background: rgba(74,208,255,0.18); color: #AEEFFF; }
+            QHeaderView::section { background: rgba(106,27,154,0.45); color: #AEEFFF; border: none; padding: 8px; font-size: 16px; font-weight: bold; }
+        """)
+        splitter.addWidget(self.tabla)
+
+    def actualizar_tabla_estadistica(self):
+        """Llena la tabla de estadísticas con los datos de ventas actuales"""
+        self.tabla.setRowCount(0)
+        if self.df_ventas.empty:
+            return
+        for idx, row in self.df_ventas.iterrows():
+            self.tabla.insertRow(idx)
+            self.tabla.setItem(idx, 0, QTableWidgetItem(str(row.get("fecha_movimiento", ""))))
+            self.tabla.setItem(idx, 1, QTableWidgetItem(str(row.get("nombre", ""))))
+            self.tabla.setItem(idx, 2, QTableWidgetItem(str(row.get("cantidad", ""))))
+            self.tabla.setItem(idx, 3, QTableWidgetItem(f"{row.get('precio_unitario', 0):.2f}"))
+            self.tabla.setItem(idx, 4, QTableWidgetItem(f"{row.get('valor_total', 0):.2f}"))
+            self.tabla.setItem(idx, 5, QTableWidgetItem(str(row.get("usuario", ""))))
+
+        # Configurar proporciones del splitter
+        self.splitter.setStretchFactor(0, 1)
+        self.splitter.setStretchFactor(1, 3)
 
     def aplicar_tema(self):
         """Aplica un tema moderno a la aplicación"""
@@ -528,18 +561,15 @@ class EstadisticasVentas(QMainWindow):
         try:
             # Cargar datos
             self.df_ventas = self.cargar_datos_ventas()
-            
+            self.actualizar_tabla_estadistica()
             if self.df_ventas.empty:
                 self.actualizar_stats_vacias()
                 self.limpiar_graficos()
                 return
-            
             # Calcular estadísticas
             self.calcular_estadisticas()
-            
             # Actualizar gráficos por defecto
             self.mostrar_ventas_tiempo()
-            
         except Exception as e:
             logging.error(f"Error en cargar_estadisticas: {e}")
             QMessageBox.critical(self, 'Error', f'Error actualizando estadísticas: {e}')
