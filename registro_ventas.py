@@ -97,43 +97,135 @@ class LibroDiarioVentas(QMainWindow):
         self.cargar_movimientos()
 
     def init_ui(self):
-        """Inicializa la interfaz de usuario"""
+        """Inicializa la interfaz de usuario con estilo moderno"""
         self.setWindowTitle("Libro Diario de Ventas")
-        self.setGeometry(100, 100, 1200, 600)  # Ventana más grande
+        self.setGeometry(100, 100, 1200, 600)
+
+        # Fondo gradiente púrpura-azul y estilos modernos
+        self.setStyleSheet("""
+            QMainWindow, QWidget {
+                background: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:1,
+                    stop:0 #6a1b9a, stop:1 #1976d2);
+                font-family: 'Segoe UI', Arial, sans-serif;
+                font-size: 15px;
+                color: #ffffff;
+            }
+            QLabel#title {
+                font-size: 28px;
+                font-weight: bold;
+                color: #fff;
+                padding: 18px 0 10px 0;
+                letter-spacing: 1px;
+                text-align: center;
+            }
+            QLabel {
+                font-weight: 600;
+                color: #e3e3e3;
+            }
+            QLineEdit {
+                padding: 10px;
+                border-radius: 10px;
+                background: rgba(0,0,0,0.25);
+                color: #ffffff;
+                border: 1.5px solid #8bd3ff;
+                margin-bottom: 8px;
+            }
+            QPushButton {
+                padding: 10px 20px;
+                border-radius: 12px;
+                color: #22223b;
+                font-weight: 700;
+                background: qlineargradient(x1:0,y1:0,x2:1,y2:0, stop:0 #7ed6fa, stop:1 #8bd3ff);
+                border: none;
+                margin: 4px;
+                transition: background 0.2s;
+            }
+            QPushButton:hover {
+                background: qlineargradient(x1:0,y1:0,x2:1,y2:0, stop:0 #8bd3ff, stop:1 #7ed6fa);
+                color: #22223b;
+            }
+            QPushButton#exportar_excel {
+                background: qlineargradient(x1:0,y1:0,x2:1,y2:0, stop:0 #7ed6fa, stop:1 #8bd3ff);
+                color:#22223b;
+            }
+            QPushButton#estadisticas {
+                background: qlineargradient(x1:0,y1:0,x2:1,y2:0, stop:0 #8e44ad, stop:1 #6a1b9a);
+                color:#fff;
+                font-weight: bold;
+                border-radius: 12px;
+            }
+            QPushButton#volver {
+                background: rgba(255,255,255,0.12);
+                color: #ffffff;
+                border: 1.5px solid rgba(255,255,255,0.18);
+            }
+            QPushButton#menu {
+                background: qlineargradient(x1:0,y1:0,x2:1,y2:0, stop:0 #8bd3ff, stop:1 #ffb6e6);
+                color:#22223b;
+                font-weight: bold;
+                padding: 10px 20px;
+                border-radius: 12px;
+            }
+            QTableWidget {
+                background: rgba(255,255,255,0.08);
+                border-radius: 10px;
+                border: 1.5px solid #8bd3ff;
+                font-size: 14px;
+                color: #22223b;
+                gridline-color: #8bd3ff;
+            }
+            QTableWidget::item {
+                background: rgba(255,255,255,0.18);
+                color: #22223b;
+                border-radius: 6px;
+            }
+            QTableWidget::item:selected {
+                background-color: #7ed6fa;
+                color: #22223b;
+            }
+            QHeaderView::section {
+                background-color: #6a1b9a;
+                color: #fff;
+                padding: 8px;
+                border: none;
+                font-weight: bold;
+                font-size: 15px;
+                border-radius: 8px;
+            }
+        """)
 
         main_widget = QWidget()
         main_layout = QVBoxLayout()
+        main_layout.setContentsMargins(30, 24, 30, 24)
+        main_layout.setSpacing(18)
         main_widget.setLayout(main_layout)
         self.setCentralWidget(main_widget)
 
         # Título
         label = QLabel("Libro Diario de Ventas")
-        label.setStyleSheet("font-size: 22px; font-weight: bold; margin-bottom: 10px; color: #2c3e50;")
-        main_layout.addWidget(label)
+        label.setObjectName("title")
+        main_layout.addWidget(label, alignment=Qt.AlignHCenter)
 
         # Barra de herramientas de búsqueda
         toolbar = QHBoxLayout()
+        toolbar.setSpacing(10)
         self.input_busqueda = QLineEdit()
         self.input_busqueda.setPlaceholderText("Buscar por fecha (YYYY-MM-DD), mes (YYYY-MM), año (YYYY) o rango (YYYY-MM-DD a YYYY-MM-DD)")
         self.input_busqueda.returnPressed.connect(self.buscar_movimientos)
-        self.input_busqueda.setStyleSheet("padding: 5px; border: 1px solid #bdc3c7; border-radius: 3px;")
-        
+        toolbar.addWidget(self.input_busqueda, stretch=2)
+
         btn_buscar = QPushButton("Buscar")
         btn_buscar.clicked.connect(self.buscar_movimientos)
-        btn_buscar.setStyleSheet("background-color: #3498db; color: white; padding: 5px 10px; border: none; border-radius: 3px;")
-        
+        toolbar.addWidget(btn_buscar)
+
         btn_limpiar = QPushButton("Limpiar")
         btn_limpiar.clicked.connect(self.limpiar_busqueda)
-        btn_limpiar.setStyleSheet("background-color: #95a5a6; color: white; padding: 5px 10px; border: none; border-radius: 3px;")
-        
-        toolbar.addWidget(self.input_busqueda)
-        toolbar.addWidget(btn_buscar)
         toolbar.addWidget(btn_limpiar)
         main_layout.addLayout(toolbar)
 
         # Botones de filtro rápido
         filtros_layout = QHBoxLayout()
-        
+        filtros_layout.setSpacing(8)
         filtros = [
             ("Hoy", 'dia'),
             ("Esta Semana", 'semana'),
@@ -143,13 +235,12 @@ class LibroDiarioVentas(QMainWindow):
             ("Mes Pasado", 'mes_pasado'),
             ("Año Pasado", 'anio_pasado')
         ]
-        
         for texto, periodo in filtros:
             btn = QPushButton(texto)
+            btn.setMinimumWidth(110)
             btn.clicked.connect(lambda checked, p=periodo: self.filtrar_por_periodo(p))
-            btn.setStyleSheet("background-color: #e74c3c; color: white; padding: 3px 8px; margin: 2px; border: none; border-radius: 3px;")
+            btn.setStyleSheet("background: qlineargradient(x1:0,y1:0,x2:1,y2:0, stop:0 #7ed6fa, stop:1 #8bd3ff); color: #22223b; font-weight: 700; border-radius: 8px; margin: 2px; font-size: 15px;")
             filtros_layout.addWidget(btn)
-        
         main_layout.addLayout(filtros_layout)
 
         # Tabla para mostrar movimientos de inventario
@@ -158,35 +249,126 @@ class LibroDiarioVentas(QMainWindow):
 
         # Botones de acción
         botones_layout = QHBoxLayout()
-        
+        botones_layout.setSpacing(12)
+
         btn_exportar_excel = QPushButton("Exportar a Excel")
+        btn_exportar_excel.setObjectName("exportar_excel")
+        btn_exportar_excel.setMinimumWidth(150)
         btn_exportar_excel.clicked.connect(self.exportar_excel)
-        btn_exportar_excel.setStyleSheet("background-color: #27ae60; color: white; padding: 8px 12px; border: none; border-radius: 3px;")
-        
-        #btn_imprimir = QPushButton("Imprimir")
-        #btn_imprimir.clicked.connect(self.imprimir_tabla)
-        #btn_imprimir.setStyleSheet("background-color: #f39c12; color: white; padding: 8px 12px; border: none; border-radius: 3px;")
-        
-        btn_volver = QPushButton("Volver")
-        btn_volver.clicked.connect(self.volver_a_ventas_admin)
-        btn_volver.setStyleSheet("background-color: #1976d2; color: white; font-weight: bold; padding: 8px 12px; border: none; border-radius: 3px;")
-
-        btn_estadisticas = QPushButton("Ver Estadísticas")
-        btn_estadisticas.setStyleSheet("background-color: #8e44ad; color: white; font-weight: bold; padding: 8px 12px; border: none; border-radius: 3px;")
-        btn_estadisticas.clicked.connect(self.abrir_estadisticas)
-        
         botones_layout.addWidget(btn_exportar_excel)
-        #botones_layout.addWidget(btn_imprimir)
-        botones_layout.addWidget(btn_estadisticas)
-        botones_layout.addStretch()  # Espacio flexible
-        botones_layout.addWidget(btn_volver)
-        
-        btn_menu = QPushButton("Menú Principal")
-        btn_menu.setStyleSheet("background-color: #FFD700; color: black; font-weight: bold; padding: 8px 12px; border: none; border-radius: 3px;")
-        btn_menu.clicked.connect(self.ir_menu_principal)
-        botones_layout.addWidget(btn_menu)
 
-        main_layout.addLayout(botones_layout)
+
+        btn_filtro_fechas = QPushButton("Ver por Fechas")
+        btn_filtro_fechas.setObjectName("filtro_fechas")
+        btn_filtro_fechas.setMinimumWidth(150)
+        btn_filtro_fechas.setStyleSheet("background: qlineargradient(x1:0,y1:0,x2:1,y2:0, stop:0 #7ed6fa, stop:1 #8bd3ff); color: #22223b; font-weight: bold; border-radius: 12px; padding: 10px 20px; font-size: 15px;")
+        btn_filtro_fechas.clicked.connect(self.abrir_dialogo_fechas)
+        botones_layout.addWidget(btn_filtro_fechas)
+
+        btn_fechas_personalizadas = QPushButton("Fechas Personalizadas")
+        btn_fechas_personalizadas.setObjectName("fechas_personalizadas")
+        btn_fechas_personalizadas.setMinimumWidth(170)
+        btn_fechas_personalizadas.setStyleSheet("background: qlineargradient(x1:0,y1:0,x2:1,y2:0, stop:0 #8bd3ff, stop:1 #7ed6fa); color: #22223b; font-weight: bold; border-radius: 12px; padding: 10px 20px; font-size: 15px;")
+        btn_fechas_personalizadas.clicked.connect(self.abrir_dialogo_fechas_personalizadas)
+        botones_layout.addWidget(btn_fechas_personalizadas)
+    def abrir_dialogo_fechas_personalizadas(self):
+        """Abre un diálogo para seleccionar varias fechas específicas y filtra los registros"""
+        from PyQt5.QtWidgets import QDialog, QVBoxLayout, QLabel, QListWidget, QListWidgetItem, QDateEdit, QPushButton, QHBoxLayout
+        from PyQt5.QtCore import QDate
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Fechas Personalizadas")
+        dialog.setFixedSize(400, 320)
+        layout = QVBoxLayout()
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(12)
+
+        label = QLabel("Agrega las fechas que deseas consultar:")
+        label.setStyleSheet("font-size: 15px; font-weight: bold; color: #1976d2;")
+        layout.addWidget(label)
+
+        fechas_list = QListWidget()
+        fechas_list.setSelectionMode(QListWidget.MultiSelection)
+        layout.addWidget(fechas_list)
+
+        add_layout = QHBoxLayout()
+        add_layout.setSpacing(8)
+        date_edit = QDateEdit()
+        date_edit.setCalendarPopup(True)
+        date_edit.setDate(QDate.currentDate())
+        date_edit.setDisplayFormat("yyyy-MM-dd")
+        add_layout.addWidget(date_edit)
+        btn_add = QPushButton("Añadir Fecha")
+        btn_add.setStyleSheet("background: qlineargradient(x1:0,y1:0,x2:1,y2:0, stop:0 #7ed6fa, stop:1 #8bd3ff); color: #22223b; font-weight: bold; border-radius: 8px; padding: 6px 12px; font-size: 14px;")
+        def add_fecha():
+            fecha_str = date_edit.date().toString("yyyy-MM-dd")
+            if not any(f.fecha() == date_edit.date() for f in fechas_list.findItems(fecha_str, Qt.MatchExactly)):
+                item = QListWidgetItem(fecha_str)
+                fechas_list.addItem(item)
+        btn_add.clicked.connect(add_fecha)
+        add_layout.addWidget(btn_add)
+        layout.addLayout(add_layout)
+
+        btn_filtrar = QPushButton("Filtrar")
+        btn_filtrar.setStyleSheet("background: qlineargradient(x1:0,y1:0,x2:1,y2:0, stop:0 #8bd3ff, stop:1 #7ed6fa); color: #22223b; font-weight: bold; border-radius: 10px; padding: 8px 15px; font-size: 15px;")
+        def filtrar():
+            fechas = [fechas_list.item(i).text() for i in range(fechas_list.count())]
+            if fechas:
+                placeholders = ','.join(['?']*len(fechas))
+                filtro_sql = f'date("fecha_movimiento") IN ({placeholders})'
+                self.cargar_movimientos(filtro_sql, fechas)
+            dialog.accept()
+        btn_filtrar.clicked.connect(filtrar)
+        layout.addWidget(btn_filtrar, alignment=Qt.AlignCenter)
+
+        dialog.setLayout(layout)
+        dialog.exec_()
+    def abrir_dialogo_fechas(self):
+        """Abre un diálogo para seleccionar rango de fechas y filtra los registros"""
+        from PyQt5.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QDateEdit, QPushButton
+        from PyQt5.QtCore import QDate
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Filtrar por Fechas")
+        dialog.setFixedSize(350, 180)
+        layout = QVBoxLayout()
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(12)
+
+        label = QLabel("Selecciona el rango de fechas:")
+        label.setStyleSheet("font-size: 15px; font-weight: bold; color: #6a1b9a;")
+        layout.addWidget(label)
+
+        fechas_layout = QHBoxLayout()
+        fechas_layout.setSpacing(10)
+        fecha_ini = QDateEdit()
+        fecha_ini.setCalendarPopup(True)
+        fecha_ini.setDate(QDate.currentDate().addMonths(-1))
+        fecha_ini.setDisplayFormat("yyyy-MM-dd")
+        fechas_layout.addWidget(QLabel("Desde:"))
+        fechas_layout.addWidget(fecha_ini)
+        fecha_fin = QDateEdit()
+        fecha_fin.setCalendarPopup(True)
+        fecha_fin.setDate(QDate.currentDate())
+        fecha_fin.setDisplayFormat("yyyy-MM-dd")
+        fechas_layout.addWidget(QLabel("Hasta:"))
+        fechas_layout.addWidget(fecha_fin)
+        layout.addLayout(fechas_layout)
+
+        btn_filtrar = QPushButton("Filtrar")
+        btn_filtrar.setStyleSheet("background: qlineargradient(x1:0,y1:0,x2:1,y2:0, stop:0 #7ed6fa, stop:1 #8bd3ff); color: #22223b; font-weight: bold; border-radius: 10px; padding: 8px 15px; font-size: 15px;")
+        btn_filtrar.clicked.connect(lambda: self.filtrar_por_rango_fechas(dialog, fecha_ini.date(), fecha_fin.date()))
+        layout.addWidget(btn_filtrar, alignment=Qt.AlignCenter)
+
+        dialog.setLayout(layout)
+        dialog.exec_()
+
+    def filtrar_por_rango_fechas(self, dialog, qdate_ini, qdate_fin):
+        """Filtra los registros por el rango de fechas seleccionado"""
+        fecha_ini = qdate_ini.toString("yyyy-MM-dd")
+        fecha_fin = qdate_fin.toString("yyyy-MM-dd")
+        filtro_sql = 'date("fecha_movimiento") BETWEEN ? AND ?'
+        params = [fecha_ini, fecha_fin]
+        self.cargar_movimientos(filtro_sql, params)
+        dialog.accept()
 
     def abrir_estadisticas(self):
         """Abre la ventana de estadísticas (estadistica.py) en el mismo proceso"""
@@ -231,19 +413,30 @@ class LibroDiarioVentas(QMainWindow):
         # Estilo de la tabla
         self.tabla.setStyleSheet("""
             QTableWidget {
-                border: 1px solid #bdc3c7;
-                border-radius: 5px;
+                background: rgba(255,255,255,0.08);
+                border-radius: 10px;
+                border: 1.5px solid #8bd3ff;
+                font-size: 14px;
+                color: #22223b;
+                gridline-color: #8bd3ff;
+            }
+            QTableWidget::item {
+                background: rgba(255,255,255,0.18);
+                color: #22223b;
+                border-radius: 6px;
             }
             QTableWidget::item:selected {
-                background-color: #3498db;
-                color: white;
+                background-color: #7ed6fa;
+                color: #22223b;
             }
             QHeaderView::section {
-                background-color: #34495e;
-                color: white;
-                padding: 5px;
-                border: 1px solid #2c3e50;
+                background-color: #6a1b9a;
+                color: #fff;
+                padding: 8px;
+                border: none;
                 font-weight: bold;
+                font-size: 15px;
+                border-radius: 8px;
             }
         """)
 

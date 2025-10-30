@@ -20,51 +20,79 @@ class ReporteProductos(QWidget):
         self.resize(1000, 600)
         self.db_path = "pruebas.db"
 
-        # Background image label (image6.jpg)
-        img_path = os.path.join(os.path.dirname(__file__), "image6.jpg")
-        if os.path.exists(img_path):
-            self._bg_pixmap = QPixmap(img_path)
-            self.bg_label = QLabel(self)
-            self.bg_label.setScaledContents(True)
-            # Place behind other widgets
-            self.bg_label.lower()
-            try:
-                scaled = self._bg_pixmap.scaled(self.size(), Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation)
-                self.bg_label.setPixmap(scaled)
-                self.bg_label.resize(self.size())
-            except Exception:
-                self.bg_label.setPixmap(self._bg_pixmap)
-
         main_layout = QVBoxLayout(self)
 
-        # Light stylesheet using the image palette (purple, pink, cyan)
+        # Nuevo estilo gradiente púrpura-azul y botones azul claro
         self.setStyleSheet('''
-            QWidget { background: transparent; color: #FFFFFF; }
-            QLabel#title { font-size: 22px; font-weight: bold; color: #ffffff; }
-            QLineEdit { background: rgba(0,0,0,0.18); border: 1px solid rgba(255,255,255,0.06); padding: 6px; color: #FFFFFF; border-radius:6px; }
-            QPushButton { background: qlineargradient(x1:0,y1:0,x2:1,y2:0, stop:0 #5b2c6f, stop:1 #2c3e50); color: #FFFFFF; border-radius: 8px; padding: 6px 10px; }
-            QPushButton#accent { background: qlineargradient(x1:0,y1:0,x2:1,y2:0, stop:0 #5a2a63, stop:1 #2a3a4a); color: #FFFFFF; }
-            QTabWidget::pane { background: rgba(0,0,0,0.30); border: none; }
-            /* Tabs (Disponibles / Eliminados) */
+            QWidget {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+                    stop:0 #6f2b78, stop:0.5 #2f3b8f, stop:1 #7ed6fa);
+                color: #f8f8ff;
+            }
+            QLabel#title, QLabel {
+                font-size: 22px;
+                font-weight: bold;
+                color: #f8f8ff;
+            }
+            QLineEdit {
+                background: rgba(255,255,255,0.10);
+                border: 1px solid #8bd3ff;
+                padding: 7px;
+                color: #22223b;
+                border-radius: 8px;
+                font-size: 15px;
+            }
+            QPushButton {
+                background: qlineargradient(x1:0,y1:0,x2:1,y2:0, stop:0 #7ed6fa, stop:1 #8bd3ff);
+                color: #22223b;
+                border-radius: 10px;
+                padding: 8px 15px;
+                font-size: 15px;
+                font-weight: bold;
+            }
+            QPushButton#accent {
+                background: qlineargradient(x1:0,y1:0,x2:1,y2:0, stop:0 #5a2a63, stop:1 #2a3a4a);
+                color: #FFFFFF;
+            }
+            QTabWidget::pane {
+                background: rgba(255,255,255,0.08);
+                border: none;
+            }
             QTabBar::tab {
-                background: rgba(0,0,0,0.12);
-                color: rgba(255,255,255,0.95);
+                background: rgba(255,255,255,0.18);
+                color: #22223b;
                 padding: 8px 14px;
-                border-radius: 6px;
-                margin-right: 6px;
+                border-radius: 8px;
+                margin-right: 8px;
+                font-size: 15px;
             }
             QTabBar::tab:hover {
-                background: rgba(0,0,0,0.22);
+                background: rgba(126,214,250,0.22);
             }
             QTabBar::tab:selected {
                 background: qlineargradient(x1:0,y1:0,x2:1,y2:0, stop:0 #6f2b78, stop:1 #2f3b8f);
-                color: #ffffff;
+                color: #f8f8ff;
                 font-weight: 600;
             }
-            QHeaderView::section { background: rgba(0,0,0,0.75); color: white; padding: 6px; }
-            QTableWidget { background: transparent; color: #FFFFFF; gridline-color: rgba(0,0,0,0.12); }
-            QTableWidget::item { background: rgba(0,0,0,0.12); }
-            QTableWidget::item:selected { background: rgba(155,89,182,0.45); color: #fff; }
+            QHeaderView::section {
+                background: qlineargradient(x1:0,y1:0,x2:1,y2:0, stop:0 #6f2b78, stop:1 #2f3b8f);
+                color: #f8f8ff;
+                padding: 7px;
+                font-size: 15px;
+            }
+            QTableWidget {
+                background: transparent;
+                color: #22223b;
+                gridline-color: #8bd3ff;
+                font-size: 15px;
+            }
+            QTableWidget::item {
+                background: rgba(255,255,255,0.10);
+            }
+            QTableWidget::item:selected {
+                background: rgba(126,214,250,0.45);
+                color: #22223b;
+            }
         ''')
 
         # Barra superior: Título y botones
@@ -179,17 +207,7 @@ class ReporteProductos(QWidget):
 
     # (Se eliminó el botón 'Menú Principal' inferior; ahora está en la barra superior)
 
-    def resizeEvent(self, event):
-        """Reescalar el fondo al cambiar el tamaño de la ventana."""
-        try:
-            if hasattr(self, '_bg_pixmap') and self._bg_pixmap and hasattr(self, 'bg_label'):
-                scaled = self._bg_pixmap.scaled(self.size(), Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation)
-                self.bg_label.setPixmap(scaled)
-                self.bg_label.resize(self.size())
-                self.bg_label.lower()
-        except Exception:
-            pass
-        return super().resizeEvent(event)
+    # El fondo ya no se reescala, método removido
 
     def volver(self):
         script_path = os.path.join(os.path.dirname(__file__), "menu.py")

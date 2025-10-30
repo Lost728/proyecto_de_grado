@@ -16,35 +16,126 @@ class ReporteEmpleados(QWidget):
         self.resize(800, 500)
         self.db_path = "pruebas.db"
 
+        # Fondo gradiente púrpura-azul y estilos modernos
+        self.setStyleSheet("""
+            QWidget {
+                background: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:1,
+                    stop:0 #6a1b9a, stop:1 #1976d2);
+                font-family: 'Segoe UI', Arial, sans-serif;
+                font-size: 15px;
+                color: #ffffff;
+            }
+            QLabel#titulo {
+                font-size: 28px;
+                font-weight: bold;
+                color: #fff;
+                padding: 18px 0 10px 0;
+                letter-spacing: 1px;
+                text-align: center;
+            }
+            QLabel {
+                font-weight: 600;
+                color: #e3e3e3;
+            }
+            QLineEdit {
+                padding: 10px;
+                border-radius: 10px;
+                background: rgba(0,0,0,0.25);
+                color: #ffffff;
+                border: 1.5px solid #8bd3ff;
+                margin-bottom: 8px;
+            }
+            QPushButton {
+                padding: 10px 20px;
+                border-radius: 12px;
+                color: #22223b;
+                font-weight: 700;
+                background: qlineargradient(x1:0,y1:0,x2:1,y2:0, stop:0 #7ed6fa, stop:1 #8bd3ff);
+                border: none;
+                margin: 4px;
+                transition: background 0.2s;
+            }
+            QPushButton:hover {
+                background: qlineargradient(x1:0,y1:0,x2:1,y2:0, stop:0 #8bd3ff, stop:1 #7ed6fa);
+                color: #22223b;
+            }
+            QTabWidget::pane {
+                border: 2px solid #8bd3ff;
+                border-radius: 10px;
+                background: rgba(255,255,255,0.08);
+            }
+            QTabBar::tab {
+                background: qlineargradient(x1:0,y1:0,x2:1,y2:0, stop:0 #7ed6fa, stop:1 #8bd3ff);
+                color: #22223b;
+                font-weight: bold;
+                border-radius: 8px;
+                padding: 8px 18px;
+                margin: 4px;
+            }
+            QTabBar::tab:selected {
+                background: qlineargradient(x1:0,y1:0,x2:1,y2:0, stop:0 #8bd3ff, stop:1 #7ed6fa);
+                color: #22223b;
+            }
+            QTableWidget {
+                background: rgba(255,255,255,0.08);
+                border-radius: 10px;
+                border: 1.5px solid #8bd3ff;
+                font-size: 14px;
+                color: #22223b;
+                gridline-color: #8bd3ff;
+            }
+            QTableWidget::item {
+                background: rgba(255,255,255,0.18);
+                color: #22223b;
+                border-radius: 6px;
+            }
+            QTableWidget::item:selected {
+                background-color: #7ed6fa;
+                color: #22223b;
+            }
+            QHeaderView::section {
+                background-color: #6a1b9a;
+                color: #fff;
+                padding: 8px;
+                border: none;
+                font-weight: bold;
+                font-size: 15px;
+                border-radius: 8px;
+            }
+        """)
+
         main_layout = QVBoxLayout()
+        main_layout.setContentsMargins(30, 24, 30, 24)
+        main_layout.setSpacing(18)
         self.setLayout(main_layout)
 
-        # Botón Regresar
+        # Botón Regresar y Menú Principal en una sola fila
+        top_buttons_layout = QHBoxLayout()
         btn_regresar = QPushButton("Regresar")
-        btn_regresar.setStyleSheet("background-color: #FFD700; font-size: 14px;")
         btn_regresar.clicked.connect(self.regresar_a_buscar_empleado)
-        main_layout.addWidget(btn_regresar, alignment=Qt.AlignLeft)
-
-        # Botón Menú Principal
+        top_buttons_layout.addWidget(btn_regresar)
         btn_menu = QPushButton("Menú Principal")
-        btn_menu.setStyleSheet("background-color: #FFD700; font-size: 14px;")
         btn_menu.clicked.connect(self.ir_menu_principal)
-        main_layout.addWidget(btn_menu, alignment=Qt.AlignLeft)
+        top_buttons_layout.addWidget(btn_menu)
+        top_buttons_layout.addStretch()
+        main_layout.addLayout(top_buttons_layout)
 
         # Título
         titulo = QLabel("Reporte de Empleados")
-        titulo.setStyleSheet("font-size: 22px; font-weight: bold; margin-bottom: 10px;")
-        main_layout.addWidget(titulo)
+        titulo.setObjectName("titulo")
+        main_layout.addWidget(titulo, alignment=Qt.AlignHCenter)
 
         # Buscador y controles
         controls_layout = QHBoxLayout()
+        controls_layout.setSpacing(10)
         self.input_busqueda = QLineEdit()
         self.input_busqueda.setPlaceholderText("Buscar por nombre o CI...")
         self.input_busqueda.returnPressed.connect(self.buscar)
         btn_buscar = QPushButton("Buscar")
         btn_buscar.clicked.connect(self.buscar)
         controls_layout.addWidget(QLabel("Buscar:"))
-        controls_layout.addWidget(self.input_busqueda)
+        controls_layout.addWidget(self.input_busqueda, stretch=2)
+        controls_layout.addWidget(btn_buscar)
         controls_layout.addStretch()
         main_layout.addLayout(controls_layout)
 
@@ -127,78 +218,116 @@ class ReporteEmpleados(QWidget):
             btn_evento.clicked.connect(lambda _, ci=ci: self.registrar_evento_empleado(ci))
             self.tabla_activos.setCellWidget(row_num, 7, btn_evento)
     def ver_historial_empleado(self, ci_empleado):
-        from PyQt5.QtWidgets import QDialog
+        from PyQt5.QtWidgets import QDialog, QVBoxLayout, QLabel, QTableWidget, QTableWidgetItem, QHeaderView, QPushButton
         dialog = QDialog(self)
-        dialog.setWindowTitle(f"Historial de CI: {ci_empleado}")
-        layout = QVBoxLayout(dialog)
-        tabla = QTableWidget()
-        tabla.setEditTriggers(QTableWidget.NoEditTriggers)
-        tabla.setColumnCount(9)
-        tabla.setHorizontalHeaderLabels([
-            "CI", "Nombre", "Apellido", "Celular", "Estado", "Tipo evento", "Motivo", "Fecha", "Observaciones"
-        ])
-        tabla.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        dialog.setWindowTitle(f"Historial de bajas - CI: {ci_empleado}")
+        dialog.setFixedSize(600, 350)
+        layout = QVBoxLayout()
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(12)
+
+        # Consulta solo bajas
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
-        # Estado actual del empleado
-        cursor.execute("SELECT 1 FROM empleado WHERE ci = ?", (ci_empleado,))
-        activo = cursor.fetchone() is not None
-        # Verificar vacaciones vigentes
         cursor.execute("""
-            SELECT fecha_evento, observaciones FROM historial_empleado
-            WHERE ci_empleado = ? AND tipo_evento = 'vacaciones' ORDER BY fecha_evento DESC LIMIT 1
+            SELECT motivo, fecha_evento FROM historial_empleado WHERE ci_empleado = ? AND tipo_evento = 'baja' ORDER BY fecha_evento DESC
         """, (ci_empleado,))
-        vacacion = cursor.fetchone()
-        in_vacaciones = False
-        import time
-        if activo and vacacion:
-            try:
-                dias = int(str(vacacion[1]).split()[0])
-                inicio = int(vacacion[0])
-                ahora = int(time.time())
-                if dias > 0 and ahora < inicio + dias * 86400:
-                    in_vacaciones = True
-            except:
-                pass
-        # Historial
-        cursor.execute("""
-            SELECT ci_empleado, nombre, apellido, celular, tipo_evento, motivo, fecha_evento, observaciones
-            FROM historial_empleado WHERE ci_empleado = ? ORDER BY fecha_evento DESC
-        """, (ci_empleado,))
-        historial = cursor.fetchall()
+        bajas = cursor.fetchall()
         conn.close()
-        tabla.setRowCount(len(historial))
-        for row, datos in enumerate(historial):
-            # Estado
-            if not activo:
-                estado = QTableWidgetItem("� Inactivo")
-                estado.setForeground(Qt.red)
-            elif in_vacaciones:
-                estado = QTableWidgetItem("� Inactivo (Vacaciones)")
-                estado.setForeground(Qt.darkYellow)
-            else:
-                estado = QTableWidgetItem("🟢 Activo")
-                estado.setForeground(Qt.green)
-            tabla.setItem(row, 4, estado)
-            for col, valor in enumerate(datos):
-                col_offset = col if col < 4 else col + 1  # Saltar columna estado
-                if col == 6:  # fecha_evento
-                    try:
-                        valor = datetime.fromtimestamp(int(valor)).strftime("%Y-%m-%d")
-                    except:
-                        valor = str(valor)
-                tabla.setItem(row, col_offset, QTableWidgetItem(str(valor)))
+
+        label = QLabel(f"El usuario {ci_empleado} tuvo bajas por:")
+        label.setStyleSheet("font-size: 16px; font-weight: bold; color: #6a1b9a;")
+        layout.addWidget(label)
+
+        tabla = QTableWidget()
+        tabla.setEditTriggers(QTableWidget.NoEditTriggers)
+        tabla.setColumnCount(2)
+        tabla.setHorizontalHeaderLabels(["Motivo", "Fecha"])
+        tabla.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        tabla.setRowCount(len(bajas))
+        for row, (motivo, fecha) in enumerate(bajas):
+            fecha_str = datetime.fromtimestamp(int(fecha)).strftime("%Y-%m-%d") if str(fecha).isdigit() else str(fecha)
+            tabla.setItem(row, 0, QTableWidgetItem(motivo))
+            tabla.setItem(row, 1, QTableWidgetItem(fecha_str))
         layout.addWidget(tabla)
+
         btn_cerrar = QPushButton("Cerrar")
+        btn_cerrar.setStyleSheet("background: qlineargradient(x1:0,y1:0,x2:1,y2:0, stop:0 #7ed6fa, stop:1 #8bd3ff); color: #22223b; font-weight: bold; border-radius: 10px; padding: 8px 15px; font-size: 15px;")
         btn_cerrar.clicked.connect(dialog.accept)
-        layout.addWidget(btn_cerrar)
+        layout.addWidget(btn_cerrar, alignment=Qt.AlignCenter)
+
         dialog.setLayout(layout)
-        dialog.resize(900, 400)
         dialog.exec_()
 
     def registrar_evento_empleado(self, ci_empleado):
-        # Aquí se abrirá una ventana para registrar un evento (vacación, baja, despido)
-        QMessageBox.information(self, "Registrar evento", f"Aquí se podrá registrar un evento para el empleado CI: {ci_empleado}")
+        from PyQt5.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QComboBox, QLineEdit, QTextEdit, QDateEdit, QPushButton
+        from PyQt5.QtCore import QDate
+        import time
+        dialog = QDialog(self)
+        dialog.setWindowTitle(f"Registrar evento para CI: {ci_empleado}")
+        dialog.setFixedSize(420, 420)
+        layout = QVBoxLayout()
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(12)
+
+        label = QLabel(f"Registrar evento para empleado CI: {ci_empleado}")
+        label.setStyleSheet("font-size: 16px; font-weight: bold; color: #6a1b9a;")
+        layout.addWidget(label)
+
+        # Tipo de evento
+        tipo_evento = QComboBox()
+        tipo_evento.addItems(["vacaciones", "baja", "despido", "observación"])
+        layout.addWidget(QLabel("Tipo de evento:"))
+        layout.addWidget(tipo_evento)
+
+        # Motivo
+        motivo = QLineEdit()
+        motivo.setPlaceholderText("Motivo del evento (opcional)")
+        layout.addWidget(QLabel("Motivo:"))
+        layout.addWidget(motivo)
+
+        # Fecha del evento
+        fecha_evento = QDateEdit()
+        fecha_evento.setCalendarPopup(True)
+        fecha_evento.setDate(QDate.currentDate())
+        fecha_evento.setDisplayFormat("yyyy-MM-dd")
+        layout.addWidget(QLabel("Fecha del evento:"))
+        layout.addWidget(fecha_evento)
+
+        # Observaciones
+        observaciones = QTextEdit()
+        observaciones.setPlaceholderText("Observaciones adicionales")
+        layout.addWidget(QLabel("Observaciones:"))
+        layout.addWidget(observaciones)
+
+        # Botón guardar
+        btn_guardar = QPushButton("Guardar evento")
+        btn_guardar.setStyleSheet("background: qlineargradient(x1:0,y1:0,x2:1,y2:0, stop:0 #7ed6fa, stop:1 #8bd3ff); color: #22223b; font-weight: bold; border-radius: 10px; padding: 8px 15px; font-size: 15px;")
+        def guardar():
+            tipo = tipo_evento.currentText()
+            mot = motivo.text().strip()
+            fecha = int(time.mktime(fecha_evento.date().toPyDate().timetuple()))
+            obs = observaciones.toPlainText().strip()
+            # Obtener nombre, apellido, celular del empleado
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            cursor.execute("SELECT nombre, apellido, celular FROM empleado WHERE ci = ?", (ci_empleado,))
+            datos = cursor.fetchone()
+            nombre, apellido, celular = datos if datos else ("", "", "")
+            cursor.execute("""
+                INSERT INTO historial_empleado (ci_empleado, tipo_evento, motivo, fecha_evento, observaciones, nombre, apellido, celular)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """, (ci_empleado, tipo, mot, fecha, obs, nombre, apellido, celular))
+            conn.commit()
+            conn.close()
+            QMessageBox.information(dialog, "Evento registrado", "El evento ha sido guardado correctamente.")
+            dialog.accept()
+            self.buscar()  # Refrescar tablas
+        btn_guardar.clicked.connect(guardar)
+        layout.addWidget(btn_guardar, alignment=Qt.AlignCenter)
+
+        dialog.setLayout(layout)
+        dialog.exec_()
 
     def cargar_empleados_eliminados(self, filtro=""):
         self.tabla_eliminados.setRowCount(0)

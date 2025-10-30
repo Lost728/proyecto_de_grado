@@ -52,22 +52,23 @@ class VentasWindow(QMainWindow):
 
         main_widget = QWidget()
         main_layout = QVBoxLayout()
+        main_layout.setSpacing(12)
+        main_layout.setContentsMargins(20, 20, 20, 20)
         main_widget.setLayout(main_layout)
         self.setCentralWidget(main_widget)
-        # Aplicar tema visual consistente (púrpura/rosa/cian)
-        try:
-            self.aplicar_tema()
-        except Exception:
-            pass
+        
+        # Aplicar tema visual mejorado
+        self.aplicar_tema()
 
         # Título
         title_label = QLabel("Sistema de Ventas")
         title_label.setAlignment(Qt.AlignCenter)
-        title_label.setStyleSheet("font-size: 20px; font-weight: bold;")
+        title_label.setObjectName("titulo")
         main_layout.addWidget(title_label)
         
         # Sección de Cliente
         cliente_layout = QHBoxLayout()
+        cliente_layout.setSpacing(8)
         
         # Tipo de búsqueda
         cliente_layout.addWidget(QLabel("Buscar por:"))
@@ -87,32 +88,38 @@ class VentasWindow(QMainWindow):
         cliente_layout.addWidget(btn_buscar_cliente)
         
         btn_registrar_cliente = QPushButton("Registrar Nuevo Cliente")
+        btn_registrar_cliente.setObjectName("btnSecundario")
         btn_registrar_cliente.clicked.connect(self.abrir_registro_cliente)
         cliente_layout.addWidget(btn_registrar_cliente)
         
         # Información del cliente
         cliente_info_layout = QHBoxLayout()
+        cliente_info_layout.setSpacing(15)
+        
         self.label_info_cliente = QLabel("Cliente: No registrado")
+        self.label_info_cliente.setObjectName("infoCliente")
         cliente_info_layout.addWidget(self.label_info_cliente)
         
         self.label_puntos_cliente = QLabel("Puntos: 0")
+        self.label_puntos_cliente.setObjectName("infoPuntos")
         cliente_info_layout.addWidget(self.label_puntos_cliente)
         
         self.label_descuento_cliente = QLabel("Descuento: 0%")
+        self.label_descuento_cliente.setObjectName("infoDescuento")
         cliente_info_layout.addWidget(self.label_descuento_cliente)
         
         btn_historial_puntos = QPushButton("Ver Historial de Puntos")
-        btn_historial_puntos.setStyleSheet("background-color: #00b894; color: white; font-size: 14px;")
+        btn_historial_puntos.setObjectName("btnVerde")
         btn_historial_puntos.clicked.connect(lambda: self.mostrar_historial_puntos(self.cliente_actual['ci']) if self.cliente_actual else QMessageBox.information(self, "Sin cliente", "Primero seleccione un cliente."))
         cliente_info_layout.addWidget(btn_historial_puntos)
         
         btn_ver_devoluciones = QPushButton("Ver Devoluciones")
-        btn_ver_devoluciones.setStyleSheet("background-color: #d35400; color: white; font-size: 14px;")
+        btn_ver_devoluciones.setObjectName("btnNaranja")
         btn_ver_devoluciones.clicked.connect(self.abrir_devoluciones_py)
         cliente_info_layout.addWidget(btn_ver_devoluciones)
         
         btn_reintegrar_devolucion = QPushButton("Reintegrar Devolución")
-        btn_reintegrar_devolucion.setStyleSheet("background-color: #0984e3; color: white; font-size: 14px;")
+        btn_reintegrar_devolucion.setObjectName("btnAzul")
         btn_reintegrar_devolucion.clicked.connect(self.reintegrar_devolucion)
         cliente_info_layout.addWidget(btn_reintegrar_devolucion)
         
@@ -120,37 +127,46 @@ class VentasWindow(QMainWindow):
         main_layout.addLayout(cliente_layout)
         main_layout.addLayout(cliente_info_layout)
 
-        # Barra de navegación (reorganizada)
+        # Barra de navegación
         nav_layout = QHBoxLayout()
+        nav_layout.setSpacing(8)
+        
         # Botones de navegación a la izquierda
         btn_productos = QPushButton("Ver Productos")
+        btn_productos.setObjectName("btnNavegacion")
         btn_productos.clicked.connect(lambda: self.abrir_script("ver_productos.py"))
         nav_layout.addWidget(btn_productos)
+        
         btn_nuevo_producto = QPushButton("Nuevo Producto")
+        btn_nuevo_producto.setObjectName("btnNavegacion")
         btn_nuevo_producto.clicked.connect(lambda: self.abrir_script("insertar_producto.py"))
         nav_layout.addWidget(btn_nuevo_producto)
+        
         btn_empleados = QPushButton("Empleados")
+        btn_empleados.setObjectName("btnNavegacion")
         btn_empleados.clicked.connect(lambda: self.abrir_script(os.path.join("empleados", "ver_empleado.py")))
         nav_layout.addWidget(btn_empleados)
+        
         btn_nuevo_empleado = QPushButton("Nuevo Empleado")
+        btn_nuevo_empleado.setObjectName("btnNavegacion")
         btn_nuevo_empleado.clicked.connect(lambda: self.abrir_script(os.path.join("empleados", "insertar_empleado.py")))
         nav_layout.addWidget(btn_nuevo_empleado)
 
-        nav_layout.addStretch()  # empuja las siguientes acciones a la derecha
+        nav_layout.addStretch()
 
         # Acciones importantes a la derecha
         btn_ventas = QPushButton("Ventas")
+        btn_ventas.setObjectName("btnImportante")
         btn_ventas.clicked.connect(lambda: self.abrir_script("venta_registro.py"))
         nav_layout.addWidget(btn_ventas)
 
         btn_devoluciones = QPushButton("Registrar Devolución")
-        btn_devoluciones.setStyleSheet("background-color: #e17055; color: white; font-size: 14px;")
+        btn_devoluciones.setObjectName("btnRojo")
         btn_devoluciones.clicked.connect(self.abrir_miniventana_devolucion)
         nav_layout.addWidget(btn_devoluciones)
 
-        # Botón Cerrar Día ahora en la barra superior a la derecha
         btn_cerrar_dia = QPushButton("Cerrar Día")
-        btn_cerrar_dia.setStyleSheet("background-color: #636e72; color: white; font-size: 14px;")
+        btn_cerrar_dia.setObjectName("btnGris")
         btn_cerrar_dia.clicked.connect(self.cerrar_dia)
         nav_layout.addWidget(btn_cerrar_dia)
 
@@ -158,6 +174,7 @@ class VentasWindow(QMainWindow):
 
         # Buscador de productos
         search_layout = QHBoxLayout()
+        search_layout.setSpacing(8)
         search_label = QLabel("Buscar:")
         search_layout.addWidget(search_label)
         self.input_busqueda = QLineEdit()
@@ -175,11 +192,6 @@ class VentasWindow(QMainWindow):
         self.tabla.setHorizontalHeaderLabels([
             "Nombre", "Código", "Precio", "Unidades Disponibles", "ID Producto"
         ])
-        self.tabla.setColumnWidth(0, 200)  # Nombre
-        self.tabla.setColumnWidth(1, 100)  # Código
-        self.tabla.setColumnWidth(2, 90)   # Precio
-        self.tabla.setColumnWidth(3, 110)  # Unidades Disponibles
-        self.tabla.setColumnWidth(4, 80)   # ID Producto (oculto para uso interno)
         self.tabla.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.tabla.setSelectionBehavior(QTableWidget.SelectRows)
         self.tabla.setEditTriggers(QTableWidget.NoEditTriggers)
@@ -187,6 +199,7 @@ class VentasWindow(QMainWindow):
 
         # Panel de agregar al carrito
         add_layout = QHBoxLayout()
+        add_layout.setSpacing(8)
         qty_label = QLabel("Cantidad:")
         add_layout.addWidget(qty_label)
         self.spin_cantidad = QSpinBox()
@@ -197,14 +210,16 @@ class VentasWindow(QMainWindow):
         self.combo_tipo_venta.addItems(["Por unidad"])
         add_layout.addWidget(self.combo_tipo_venta)
         btn_agregar = QPushButton("Agregar al Carrito")
+        btn_agregar.setObjectName("btnAgregar")
         btn_agregar.clicked.connect(self.agregar_al_carrito)
         add_layout.addWidget(btn_agregar)
         main_layout.addLayout(add_layout)
 
         # Tabla del carrito
         cart_label = QLabel("Carrito de Venta")
-        cart_label.setStyleSheet("font-size: 16px; font-weight: bold;")
+        cart_label.setObjectName("subtitulo")
         main_layout.addWidget(cart_label)
+        
         self.tabla_carrito = QTableWidget()
         self.tabla_carrito.setColumnCount(4)
         self.tabla_carrito.setHorizontalHeaderLabels(["ID", "Nombre", "Cantidad", "Subtotal"])
@@ -214,19 +229,26 @@ class VentasWindow(QMainWindow):
 
         # Panel de total y botones
         total_layout = QHBoxLayout()
+        total_layout.setSpacing(10)
         self.label_total = QLabel("Total: $0.00")
-        self.label_total.setStyleSheet("font-size: 18px; font-weight: bold;")
+        self.label_total.setObjectName("labelTotal")
         total_layout.addWidget(self.label_total)
+        total_layout.addStretch()
+        
         btn_cancelar = QPushButton("Cancelar Venta")
+        btn_cancelar.setObjectName("btnCancelar")
         btn_cancelar.clicked.connect(self.cancelar_venta)
         total_layout.addWidget(btn_cancelar)
+        
         btn_vender = QPushButton("Procesar Venta")
+        btn_vender.setObjectName("btnProcesar")
         btn_vender.clicked.connect(self.vender_todo)
         total_layout.addWidget(btn_vender)
         main_layout.addLayout(total_layout)
 
         # Panel de pago y cambio
         pago_layout = QHBoxLayout()
+        pago_layout.setSpacing(8)
         pago_label = QLabel("Pago del cliente (Bs.):")
         pago_layout.addWidget(pago_label)
         self.input_pago = QLineEdit()
@@ -236,12 +258,13 @@ class VentasWindow(QMainWindow):
         btn_calcular_cambio.clicked.connect(self.calcular_cambio)
         pago_layout.addWidget(btn_calcular_cambio)
         self.label_cambio = QLabel("Cambio: 0.00 Bs.")
-        self.label_cambio.setStyleSheet("font-size: 16px; font-weight: bold; color: #2d3436;")
+        self.label_cambio.setObjectName("labelCambio")
         pago_layout.addWidget(self.label_cambio)
         main_layout.addLayout(pago_layout)
 
         # Panel de descuento
         descuento_layout = QHBoxLayout()
+        descuento_layout.setSpacing(8)
         descuento_label = QLabel("Descuento (%):")
         descuento_layout.addWidget(descuento_label)
         self.input_descuento = QLineEdit()
@@ -251,13 +274,11 @@ class VentasWindow(QMainWindow):
         btn_aplicar_descuento.clicked.connect(self.aplicar_descuento)
         descuento_layout.addWidget(btn_aplicar_descuento)
         self.label_descuento = QLabel("Descuento aplicado: 0.00 Bs.")
-        self.label_descuento.setStyleSheet("font-size: 16px; color: #0984e3;")
+        self.label_descuento.setObjectName("labelDescuento")
         descuento_layout.addWidget(self.label_descuento)
         main_layout.addLayout(descuento_layout)
 
-        self.descuento_porcentaje = 0.0  # Variable para guardar el descuento aplicado
-
-        # (Botones inferiores eliminados por petición: "Menú Principal" y el duplicado "Registrar Devolución")
+        self.descuento_porcentaje = 0.0
 
         self.tabla.selectionModel().selectionChanged.connect(self.actualizar_spinbox)
         self.cargar_todos_productos()
@@ -307,7 +328,6 @@ class VentasWindow(QMainWindow):
             self.tabla.setItem(row_num, 4, QTableWidgetItem(str(id_producto)))
             
         self.tabla.resizeColumnsToContents()
-        # Ocultar la columna de ID Producto (es solo para uso interno)
         self.tabla.setColumnHidden(4, True)
         self.spin_cantidad.setMaximum(1)
 
@@ -342,7 +362,6 @@ class VentasWindow(QMainWindow):
         cantidad = self.spin_cantidad.value()
         tipo_venta = self.combo_tipo_venta.currentText()
 
-        # Ahora solo tenemos venta por unidades
         if cantidad > unidades_disponibles:
             QMessageBox.warning(self, "Stock Insuficiente", f"No hay suficientes unidades de '{nombre}'.")
             return
@@ -350,7 +369,6 @@ class VentasWindow(QMainWindow):
         cantidad_unidades = cantidad
         descripcion = f"{cantidad_unidades} unidad(es)"
 
-        # Verifica si ya está en el carrito
         for item in self.carrito:
             if item["id"] == producto_id:
                 if item["cantidad"] + cantidad > item["stock"]:
@@ -401,7 +419,6 @@ class VentasWindow(QMainWindow):
     def aplicar_descuento(self):
         """Aplica un descuento porcentual al total de la venta."""
         try:
-            # Si hay un descuento de cliente registrado, usar ese valor como predeterminado
             if self.cliente_actual and self.descuento_cliente > 0:
                 porcentaje = self.descuento_cliente
                 self.input_descuento.setText(str(porcentaje))
@@ -440,7 +457,6 @@ class VentasWindow(QMainWindow):
             QMessageBox.warning(self, "Campo vacío", f"Ingrese un {tipo_busqueda} válido para buscar.")
             return
         
-        # Preparar la consulta según el tipo de búsqueda
         if tipo_busqueda == "CI":
             sql = "SELECT CI, nombre, apellidos, puntos_acumulados, descuento FROM clientes WHERE CI = ?"
             params = (valor_busqueda,)
@@ -452,11 +468,9 @@ class VentasWindow(QMainWindow):
             sql = "SELECT CI, nombre, apellidos, puntos_acumulados, descuento FROM clientes WHERE celular = ?"
             params = (valor_busqueda,)
         
-        # Ejecutar la consulta
         self.cursor.execute(sql, params)
         resultados = self.cursor.fetchall()
         
-        # Si no hay resultados
         if not resultados:
             QMessageBox.information(self, "Cliente no encontrado", 
                                   "No se encontró ningún cliente con ese criterio. Las ventas se realizarán sin descuento.")
@@ -467,57 +481,15 @@ class VentasWindow(QMainWindow):
             self.label_descuento_cliente.setText("Descuento: 0%")
             return
         
-        # Si hay múltiples resultados (para búsqueda por nombre)
         if len(resultados) > 1:
             self.mostrar_seleccion_cliente(resultados)
             return
             
-        # Si hay un solo resultado
         ci, nombre, apellidos, puntos, descuento = resultados[0]
         self.seleccionar_cliente(ci, nombre, apellidos, puntos, descuento)
     
-    def mostrar_seleccion_cliente(self, resultados):
-        """Muestra un diálogo para seleccionar un cliente cuando hay múltiples resultados."""
-        from PyQt5.QtWidgets import QDialog, QVBoxLayout, QListWidget, QListWidgetItem, QPushButton
-        
-        dialogo = QDialog(self)
-        dialogo.setWindowTitle("Seleccionar Cliente")
-        dialogo.setMinimumSize(400, 300)
-        
-        layout = QVBoxLayout()
-        
-        # Instrucciones
-        layout.addWidget(QLabel("Se encontraron varios clientes. Por favor, seleccione uno:"))
-        
-        # Lista de clientes
-        lista_clientes = QListWidget()
-        for ci, nombre, apellidos, puntos, descuento in resultados:
-            item = QListWidgetItem(f"{nombre} {apellidos} - CI: {ci} - Puntos: {puntos} - Descuento: {descuento}%")
-            item.setData(Qt.UserRole, (ci, nombre, apellidos, puntos, descuento))
-            lista_clientes.addItem(item)
-        
-        layout.addWidget(lista_clientes)
-        
-        # Botón de seleccionar
-        btn_seleccionar = QPushButton("Seleccionar Cliente")
-        
-        def seleccionar():
-            item_seleccionado = lista_clientes.currentItem()
-            if item_seleccionado:
-                datos = item_seleccionado.data(Qt.UserRole)
-                ci, nombre, apellidos, puntos, descuento = datos
-                self.seleccionar_cliente(ci, nombre, apellidos, puntos, descuento)
-                dialogo.accept()
-            else:
-                QMessageBox.warning(dialogo, "Selección requerida", "Por favor, seleccione un cliente de la lista.")
-        
-        btn_seleccionar.clicked.connect(seleccionar)
-        layout.addWidget(btn_seleccionar)
-        
-        dialogo.setLayout(layout)
-        dialogo.exec_()
-        
     def seleccionar_cliente(self, ci, nombre, apellidos, puntos, descuento):
+        """Selecciona un cliente y muestra su información."""
         self.cliente_actual = {
             'ci': ci,
             'nombre': nombre,
@@ -525,22 +497,55 @@ class VentasWindow(QMainWindow):
             'puntos': puntos,
             'descuento': descuento
         }
+        self.descuento_cliente = descuento
+        
         nivel, porcentaje = self.calcular_nivel_puntaje(puntos)
-        self.descuento_cliente = porcentaje
+        
         self.label_info_cliente.setText(f"Cliente: {nombre} {apellidos}")
         self.label_puntos_cliente.setText(f"Puntos: {puntos} | Nivel: {nivel}")
         self.label_descuento_cliente.setText(f"Descuento: {porcentaje}%")
         self.input_descuento.setText(str(porcentaje))
-        self.descuento_porcentaje = porcentaje
-        self.mostrar_barra_progreso(puntos)
+    
+    def mostrar_seleccion_cliente(self, resultados):
+        """Muestra un diálogo para seleccionar un cliente cuando hay múltiples resultados."""
+        from PyQt5.QtWidgets import QDialog, QVBoxLayout, QListWidget, QListWidgetItem, QPushButton, QLabel
         
-        # Aplicar descuento automáticamente si hay uno disponible
-        if descuento > 0:
-            self.input_descuento.setText(str(descuento))
-            self.aplicar_descuento()
+        dialogo = QDialog(self)
+        dialogo.setWindowTitle("Seleccionar Cliente")
+        dialogo.setMinimumSize(500, 350)
+        dialogo.setModal(True)
         
-        QMessageBox.information(self, "Cliente Seleccionado", 
-                              f"Cliente: {nombre} {apellidos}\nCI: {ci}\nPuntos: {puntos}\nDescuento: {descuento}%")
+        layout = QVBoxLayout()
+        layout.setSpacing(15)
+        layout.setContentsMargins(20, 20, 20, 20)
+        
+        label = QLabel("Se encontraron múltiples clientes. Seleccione uno:")
+        label.setObjectName("tituloDialog")
+        layout.addWidget(label)
+        
+        lista = QListWidget()
+        lista.setObjectName("listaDialog")
+        for ci, nombre, apellidos, puntos, descuento in resultados:
+            item = QListWidgetItem(f"{nombre} {apellidos} - CI: {ci}")
+            item.setData(Qt.UserRole, (ci, nombre, apellidos, puntos, descuento))
+            lista.addItem(item)
+        layout.addWidget(lista)
+        
+        btn_seleccionar = QPushButton("Seleccionar")
+        btn_seleccionar.setObjectName("btnDialog")
+        
+        def confirmar():
+            item = lista.currentItem()
+            if item:
+                ci, nombre, apellidos, puntos, descuento = item.data(Qt.UserRole)
+                self.seleccionar_cliente(ci, nombre, apellidos, puntos, descuento)
+                dialogo.accept()
+        
+        btn_seleccionar.clicked.connect(confirmar)
+        layout.addWidget(btn_seleccionar)
+        
+        dialogo.setLayout(layout)
+        dialogo.exec_()
     
     def calcular_nivel_puntaje(self, puntos):
         """Devuelve el nivel y porcentaje de descuento según los puntos acumulados."""
@@ -570,18 +575,38 @@ class VentasWindow(QMainWindow):
 
     def mostrar_historial_puntos(self, ci):
         """Muestra el historial de acumulación y canje de puntos del cliente."""
-        from PyQt5.QtWidgets import QDialog, QVBoxLayout, QLabel
+        from PyQt5.QtWidgets import QDialog, QVBoxLayout, QLabel, QScrollArea, QWidget
+        
         dialog = QDialog(self)
         dialog.setWindowTitle("Historial de puntos y canjes")
+        dialog.setMinimumSize(500, 400)
+        
         layout = QVBoxLayout()
+        
         self.cursor.execute("SELECT fecha_venta, total_venta FROM ventas WHERE id_cliente = ? ORDER BY fecha_venta DESC", (ci,))
         ventas = self.cursor.fetchall()
+        
         self.cursor.execute("SELECT premios_canjeados FROM clientes WHERE CI = ?", (ci,))
         row = self.cursor.fetchone()
         premios = row[0] if row else 0
-        layout.addWidget(QLabel(f"Premios canjeados: {premios}"))
+        
+        label_premios = QLabel(f"Premios canjeados: {premios}")
+        label_premios.setObjectName("labelResumen")
+        layout.addWidget(label_premios)
+        
+        scroll = QScrollArea()
+        scroll_widget = QWidget()
+        scroll_layout = QVBoxLayout()
+        
         for fecha, total in ventas:
-            layout.addWidget(QLabel(f"Venta: {fecha} | Monto: {total} Bs."))
+            label_venta = QLabel(f"Venta: {fecha} | Monto: {total} Bs.")
+            scroll_layout.addWidget(label_venta)
+        
+        scroll_widget.setLayout(scroll_layout)
+        scroll.setWidget(scroll_widget)
+        scroll.setWidgetResizable(True)
+        layout.addWidget(scroll)
+        
         dialog.setLayout(layout)
         dialog.exec_()
 
@@ -589,7 +614,6 @@ class VentasWindow(QMainWindow):
         if not self.cliente_actual:
             return
         ci = self.cliente_actual['ci']
-        # Sistema escalable: 2 puntos si la compra supera 500 Bs, 1 punto si no
         puntos_extra = 2 if total_compra >= 500 else 1
         self.cursor.execute("SELECT puntos_acumulados, premios_canjeados FROM clientes WHERE CI = ?", (ci,))
         row = self.cursor.fetchone()
@@ -622,46 +646,35 @@ class VentasWindow(QMainWindow):
         total_con_descuento = total - descuento
         
         for item in self.carrito:
-            # Obtener datos actuales del producto
             self.cursor.execute("SELECT unidades FROM productos WHERE id_producto = ?", (item["id"],))
             result = self.cursor.fetchone()
             if not result:
                 continue
                 
             unidades_actual = result[0]
-            
-            # Descontar unidades
             unidades_vendidas = item["cantidad"]
             nuevas_unidades = unidades_actual - unidades_vendidas
             
-            # Actualizar inventario
             self.cursor.execute(
                 "UPDATE productos SET unidades = ? WHERE id_producto = ?",
                 (nuevas_unidades, item["id"])
             )
 
-            # Registrar movimiento
             self.cursor.execute(
                 "INSERT INTO movimientos_inventario (codigo_producto, tipo_movimiento, cantidad, fecha_movimiento, observaciones, usuario) VALUES (?, ?, ?, ?, ?, ?)",
                 (item["codigo"], "venta", item["cantidad"], fecha_mov, "Venta realizada desde sistema admin", "admin")
             )
-        # Registrar la venta y actualizar los puntos del cliente si está registrado
+        
         try:
-            # Registrar la venta con información básica (ahora con id_empleado)
             self.cursor.execute(
                 "INSERT INTO ventas (fecha_venta, total_venta, id_empleado) VALUES (?, ?, ?)",
                 (fecha_mov, total_con_descuento, self.id_empleado)
             )
             
-            # Si hay un cliente registrado, actualizar sus puntos
             if self.cliente_actual:
                 self.actualizar_puntos_cliente(total_con_descuento)
             
-            # Nota: No estamos usando id_cliente en la tabla ventas por ahora
-            # debido a la incompatibilidad entre el tipo de dato CI (TEXT) y id_cliente (INTEGER)
-            
         except Exception as e:
-            # Si hay un error al registrar la venta, mostrar mensaje y continuar
             print(f"Error al registrar la venta: {e}")
             QMessageBox.warning(self, "Advertencia", 
                              f"La venta se ha procesado pero hubo un error al guardar en el historial: {e}")
@@ -722,7 +735,6 @@ class VentasWindow(QMainWindow):
         
     def abrir_registro_cliente(self):
         """Abre la ventana de registro de nuevo cliente."""
-        # Usamos una implementación diferente para que no cierre la ventana actual
         try:
             script_path = os.path.join(os.path.dirname(__file__), "registrar_cliente.py")
             subprocess.Popen([sys.executable, script_path])
@@ -743,13 +755,17 @@ class VentasWindow(QMainWindow):
 
     def abrir_miniventana_devolucion(self):
         from PyQt5.QtWidgets import QDialog, QVBoxLayout, QFormLayout, QComboBox, QSpinBox, QTextEdit, QPushButton, QLineEdit, QListWidget, QListWidgetItem, QLabel, QHBoxLayout
+        
         dialog = QDialog(self)
         dialog.setWindowTitle("Registrar Devolución")
-        dialog.setMinimumSize(400, 400)
+        dialog.setMinimumSize(500, 450)
+        
         layout = QVBoxLayout()
+        layout.setSpacing(12)
+        layout.setContentsMargins(20, 20, 20, 20)
         form = QFormLayout()
+        form.setSpacing(10)
 
-        # Buscador de productos
         buscador_layout = QHBoxLayout()
         buscador_label = QLabel("Buscar producto:")
         buscador_layout.addWidget(buscador_label)
@@ -780,24 +796,26 @@ class VentasWindow(QMainWindow):
 
         btn_buscar_producto.clicked.connect(buscar_producto)
         input_busqueda_producto.returnPressed.connect(buscar_producto)
-        buscar_producto()  # Mostrar todos al abrir
+        buscar_producto()
 
-        # Cantidad
         spin_cantidad = QSpinBox()
         spin_cantidad.setMinimum(1)
         form.addRow("Cantidad:", spin_cantidad)
-        # Motivo
+        
         input_motivo = QTextEdit()
         input_motivo.setPlaceholderText("Motivo de la devolución")
+        input_motivo.setMaximumHeight(80)
         form.addRow("Motivo:", input_motivo)
-        # Empleado
+        
         combo_empleado = QComboBox()
         self.cursor.execute("SELECT id_empleado, nombre FROM empleado")
         for id_emp, nombre in self.cursor.fetchall():
             combo_empleado.addItem(f"{nombre} [ID: {id_emp}]", id_emp)
         form.addRow("Empleado:", combo_empleado)
-        # Botón registrar
+        
         btn_registrar = QPushButton("Registrar devolución")
+        btn_registrar.setObjectName("btnProcesar")
+        
         def registrar():
             item_seleccionado = lista_productos.currentItem()
             if not item_seleccionado:
@@ -821,6 +839,7 @@ class VentasWindow(QMainWindow):
                 dialog.accept()
             except Exception as e:
                 QMessageBox.critical(dialog, "Error", f"No se pudo registrar la devolución: {str(e)}")
+        
         btn_registrar.clicked.connect(registrar)
         form.addRow(btn_registrar)
         layout.addLayout(form)
@@ -830,22 +849,60 @@ class VentasWindow(QMainWindow):
     def seleccionar_empleado(self):
         """Selecciona el empleado activo al iniciar la ventana."""
         from PyQt5.QtWidgets import QDialog, QVBoxLayout, QComboBox, QPushButton, QLabel
+        
         dialog = QDialog(self)
         dialog.setWindowTitle("Seleccionar Empleado")
+        dialog.setMinimumSize(400, 200)
+        
         layout = QVBoxLayout()
+        layout.setSpacing(15)
+        layout.setContentsMargins(20, 20, 20, 20)
+        
         label = QLabel("Seleccione el empleado que realizará las ventas hoy:")
+        label.setObjectName("tituloDialog")
         layout.addWidget(label)
+        
         combo = QComboBox()
+        combo.setStyleSheet("""
+                QComboBox {
+                    background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #e0e7ff, stop:1 #c7d2fe);
+                    border: 2px solid #4dabf5;
+                    border-radius: 10px;
+                    padding: 6px 12px;
+                    font-size: 15px;
+                    color: #22223b;
+                }
+                QComboBox::drop-down {
+                    border: none;
+                    background: #4dabf5;
+                    width: 28px;
+                    border-top-right-radius: 8px;
+                    border-bottom-right-radius: 8px;
+                }
+                QComboBox QAbstractItemView {
+                    background: #f8fafc;
+                    border: 1px solid #4dabf5;
+                    selection-background-color: #c7d2fe;
+                    selection-color: #22223b;
+                    font-size: 15px;
+                    color: #22223b;
+                    border-radius: 8px;
+                }
+            """)
         self.cursor.execute("SELECT id_empleado, nombre FROM empleado")
         empleados = self.cursor.fetchall()
         for id_emp, nombre in empleados:
             combo.addItem(f"{nombre} [ID: {id_emp}]", id_emp)
         layout.addWidget(combo)
+        
         btn = QPushButton("Confirmar")
+        btn.setObjectName("btnDialog")
         layout.addWidget(btn)
+        
         def confirmar():
             self.id_empleado = combo.currentData()
             dialog.accept()
+        
         btn.clicked.connect(confirmar)
         dialog.setLayout(layout)
         dialog.exec_()
@@ -858,7 +915,7 @@ class VentasWindow(QMainWindow):
     def crear_botones_extra(self):
         """Agrega el botón para cerrar día en la interfaz principal."""
         btn_cerrar_dia = QPushButton("Cerrar Día")
-        btn_cerrar_dia.setStyleSheet("background-color: #636e72; color: white; font-size: 14px;")
+        btn_cerrar_dia.setObjectName("btnGris")
         btn_cerrar_dia.clicked.connect(self.cerrar_dia)
         self.centralWidget().layout().addWidget(btn_cerrar_dia)
 
@@ -869,16 +926,21 @@ class VentasWindow(QMainWindow):
             return
         ci = self.cliente_actual['ci']
         from PyQt5.QtWidgets import QDialog, QVBoxLayout, QLabel
+        
         dialog = QDialog(self)
         dialog.setWindowTitle("Devoluciones del cliente")
+        dialog.setMinimumSize(500, 400)
+        
         layout = QVBoxLayout()
         self.cursor.execute("SELECT fecha_devolucion, motivo, cantidad FROM devoluciones WHERE CI_cliente = ? ORDER BY fecha_devolucion DESC", (ci,))
         devoluciones = self.cursor.fetchall()
+        
         if not devoluciones:
             layout.addWidget(QLabel("No hay devoluciones registradas para este cliente."))
         else:
             for fecha, motivo, cantidad in devoluciones:
                 layout.addWidget(QLabel(f"Fecha: {fecha} | Cantidad: {cantidad} | Motivo: {motivo}"))
+        
         dialog.setLayout(layout)
         dialog.exec_()
 
@@ -891,7 +953,6 @@ class VentasWindow(QMainWindow):
             spec = importlib.util.spec_from_file_location("devoluciones_mod", script_path)
             devoluciones_mod = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(devoluciones_mod)
-            # Instancia la ventana sin argumentos
             if hasattr(devoluciones_mod, "DevolucionesWindow"):
                 self.miniventana_devoluciones = devoluciones_mod.DevolucionesWindow()
                 self.miniventana_devoluciones.show()
@@ -903,28 +964,43 @@ class VentasWindow(QMainWindow):
     def reintegrar_devolucion(self):
         """Permite reintegrar una devolución al inventario."""
         from PyQt5.QtWidgets import QDialog, QVBoxLayout, QLabel, QComboBox, QPushButton
+        
         dialog = QDialog(self)
         dialog.setWindowTitle("Reintegrar devolución")
+        dialog.setMinimumSize(500, 300)
+        
         layout = QVBoxLayout()
-        # Buscar devoluciones del cliente
+        layout.setSpacing(15)
+        layout.setContentsMargins(20, 20, 20, 20)
+        
         if not self.cliente_actual:
             QMessageBox.information(self, "Sin cliente", "Primero seleccione un cliente.")
             return
+        
         ci = self.cliente_actual['ci']
         self.cursor.execute("SELECT id_devolucion, id_producto, cantidad, motivo, fecha_devolucion FROM devoluciones WHERE CI_cliente = ? AND reintegrado IS NULL ORDER BY fecha_devolucion DESC", (ci,))
         devoluciones = self.cursor.fetchall()
+        
         if not devoluciones:
-            layout.addWidget(QLabel("No hay devoluciones pendientes de reintegrar para este cliente."))
+            label_vacio = QLabel("No hay devoluciones pendientes de reintegrar para este cliente.")
+            label_vacio.setObjectName("labelInfo")
+            layout.addWidget(label_vacio)
         else:
+            label_titulo = QLabel("Seleccione la devolución a reintegrar:")
+            label_titulo.setObjectName("tituloDialog")
+            layout.addWidget(label_titulo)
+            
             combo = QComboBox()
             for id_dev, id_prod, cantidad, motivo, fecha in devoluciones:
                 combo.addItem(f"ID: {id_dev} | Producto: {id_prod} | Cantidad: {cantidad} | Motivo: {motivo} | Fecha: {fecha}", id_dev)
             layout.addWidget(combo)
+            
             btn = QPushButton("Reintegrar")
+            btn.setObjectName("btnProcesar")
             layout.addWidget(btn)
+            
             def confirmar():
                 id_devolucion = combo.currentData()
-                # Actualiza la devolución como reintegrada y suma al inventario
                 self.cursor.execute("SELECT id_producto, cantidad FROM devoluciones WHERE id_devolucion = ?", (id_devolucion,))
                 prod_row = self.cursor.fetchone()
                 if prod_row:
@@ -934,25 +1010,483 @@ class VentasWindow(QMainWindow):
                     self.conexion.commit()
                     QMessageBox.information(dialog, "Reintegrado", "La devolución ha sido reintegrada al inventario.")
                     dialog.accept()
+            
             btn.clicked.connect(confirmar)
+        
         dialog.setLayout(layout)
         dialog.exec_()
 
     def aplicar_tema(self):
-        """Aplica tema púrpura/rosa/cian coherente a la ventana de ventas."""
+        """Aplica tema moderno y profesional con gradientes suaves."""
         self.setStyleSheet("""
-            QMainWindow { background: qlineargradient(x1:0,y1:0,x2:1,y2:1, stop:0 #2e0b3a, stop:1 #3a0f5a); }
-            QLabel { color: #f1f2f7; }
-            QPushButton { background: qlineargradient(x1:0,y1:0,x2:1,y2:0, stop:0 #8e44ad, stop:1 #c099ff); color: #fff; border-radius:8px; padding:6px 12px; font-weight:600; }
-            QPushButton:hover { background: qlineargradient(x1:0,y1:0,x2:1,y2:0, stop:0 #6f2a8f, stop:1 #9b59b6); }
-            QLineEdit, QComboBox, QSpinBox, QDateEdit { background-color: rgba(255,255,255,0.03); color: #eef3ff; border: 1px solid rgba(255,255,255,0.06); border-radius:6px; padding:4px; }
-            QTableWidget { background-color: rgba(255,255,255,0.02); color: #ffffff; gridline-color: rgba(255,255,255,0.05); }
-            QHeaderView::section { background: rgba(0,0,0,0.35); color: #fff; }
-            QProgressBar { background: rgba(255,255,255,0.03); color: #fff; border-radius:6px; }
+            /* Ventana Principal */
+            QMainWindow {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+                    stop:0 #1a1a2e, stop:0.5 #16213e, stop:1 #0f3460);
+            }
+            
+            /* Labels generales */
+            QLabel {
+                color: #eef2f7;
+                font-size: 13px;
+                font-weight: 500;
+            }
+            
+            /* Título principal */
+            QLabel#titulo {
+                color: #ffffff;
+                font-size: 28px;
+                font-weight: 700;
+                padding: 15px;
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                    stop:0 rgba(16, 172, 132, 0.2), stop:1 rgba(33, 150, 243, 0.2));
+                border-radius: 12px;
+                margin-bottom: 10px;
+            }
+            
+            /* Subtítulos */
+            QLabel#subtitulo {
+                color: #10ac84;
+                font-size: 18px;
+                font-weight: 600;
+                padding: 8px 0;
+            }
+            
+            /* Labels de información del cliente */
+            QLabel#infoCliente, QLabel#infoPuntos, QLabel#infoDescuento {
+                color: #f8f9fa;
+                font-size: 14px;
+                font-weight: 600;
+                padding: 8px 12px;
+                background: rgba(255, 255, 255, 0.08);
+                border-radius: 8px;
+                border: 1px solid rgba(16, 172, 132, 0.3);
+            }
+            
+            /* Label de total */
+            QLabel#labelTotal {
+                color: #ffffff;
+                font-size: 24px;
+                font-weight: 700;
+                padding: 10px 15px;
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                    stop:0 #10ac84, stop:1 #1dd1a1);
+                border-radius: 10px;
+            }
+            
+            /* Label de cambio */
+            QLabel#labelCambio {
+                color: #2196F3;
+                font-size: 16px;
+                font-weight: 600;
+                padding: 8px 12px;
+                background: rgba(33, 150, 243, 0.15);
+                border-radius: 8px;
+            }
+            
+            /* Label de descuento */
+            QLabel#labelDescuento {
+                color: #ee5a6f;
+                font-size: 16px;
+                font-weight: 600;
+                padding: 8px 12px;
+                background: rgba(238, 90, 111, 0.15);
+                border-radius: 8px;
+            }
+            
+            /* Botones principales */
+            QPushButton {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #2196F3, stop:1 #1976D2);
+                color: #ffffff;
+                border: none;
+                border-radius: 8px;
+                padding: 10px 18px;
+                font-size: 14px;
+                font-weight: 600;
+                min-width: 100px;
+            }
+            
+            QPushButton:hover {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #42A5F5, stop:1 #2196F3);
+            }
+            
+            QPushButton:pressed {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #1976D2, stop:1 #1565C0);
+            }
+            
+            /* Botones de navegación */
+            QPushButton#btnNavegacion {
+                background: rgba(255, 255, 255, 0.08);
+                border: 1px solid rgba(255, 255, 255, 0.15);
+                padding: 8px 15px;
+                min-width: 80px;
+            }
+            
+            QPushButton#btnNavegacion:hover {
+                background: rgba(255, 255, 255, 0.15);
+                border: 1px solid rgba(255, 255, 255, 0.25);
+            }
+            
+            /* Botón secundario */
+            QPushButton#btnSecundario {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #9b59b6, stop:1 #8e44ad);
+            }
+            
+            QPushButton#btnSecundario:hover {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #b07cc6, stop:1 #9b59b6);
+            }
+            
+            /* Botón importante */
+            QPushButton#btnImportante {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #f39c12, stop:1 #e67e22);
+                font-weight: 700;
+            }
+            
+            QPushButton#btnImportante:hover {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #f5b041, stop:1 #f39c12);
+            }
+            
+            /* Botón agregar */
+            QPushButton#btnAgregar {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #10ac84, stop:1 #0e8f6e);
+                font-size: 15px;
+                padding: 12px 20px;
+            }
+            
+            QPushButton#btnAgregar:hover {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #1dd1a1, stop:1 #10ac84);
+            }
+            
+            /* Botón procesar */
+            QPushButton#btnProcesar {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #10ac84, stop:1 #0e8f6e);
+                font-size: 16px;
+                font-weight: 700;
+                padding: 12px 24px;
+                min-width: 140px;
+            }
+            
+            QPushButton#btnProcesar:hover {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #1dd1a1, stop:1 #10ac84);
+            }
+            
+            /* Botón cancelar */
+            QPushButton#btnCancelar {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #636e72, stop:1 #2d3436);
+            }
+            
+            QPushButton#btnCancelar:hover {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #757f83, stop:1 #636e72);
+            }
+            
+            /* Botones de colores específicos */
+            QPushButton#btnVerde {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #00b894, stop:1 #00a383);
+            }
+            
+            QPushButton#btnVerde:hover {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #00d1a3, stop:1 #00b894);
+            }
+            
+            QPushButton#btnNaranja {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #e17055, stop:1 #d35400);
+            }
+            
+            QPushButton#btnNaranja:hover {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #fab1a0, stop:1 #e17055);
+            }
+            
+            QPushButton#btnAzul {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #0984e3, stop:1 #0652DD);
+            }
+            
+            QPushButton#btnAzul:hover {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #74b9ff, stop:1 #0984e3);
+            }
+            
+            QPushButton#btnRojo {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #ee5a6f, stop:1 #d63031);
+            }
+            
+            QPushButton#btnRojo:hover {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #ff7675, stop:1 #ee5a6f);
+            }
+            
+            QPushButton#btnGris {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #636e72, stop:1 #2d3436);
+            }
+            
+            QPushButton#btnGris:hover {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #b2bec3, stop:1 #636e72);
+            }
+            
+            /* Campos de entrada */
+            QLineEdit, QSpinBox, QComboBox {
+                background-color: rgba(255, 255, 255, 0.08);
+                color: #f8f9fa;
+                border: 1px solid rgba(255, 255, 255, 0.15);
+                border-radius: 8px;
+                padding: 8px 12px;
+                font-size: 13px;
+                selection-background-color: #2196F3;
+            }
+            
+            QLineEdit:focus, QSpinBox:focus, QComboBox:focus {
+                border: 2px solid #2196F3;
+                background-color: rgba(255, 255, 255, 0.12);
+            }
+            
+            QComboBox::drop-down {
+                border: none;
+                width: 30px;
+            }
+            
+            QComboBox::down-arrow {
+                image: none;
+                border-left: 5px solid transparent;
+                border-right: 5px solid transparent;
+                border-top: 5px solid #f8f9fa;
+                margin-right: 8px;
+            }
+            
+            QComboBox QAbstractItemView {
+                background-color: #2d3436;
+                color: #f8f9fa;
+                border: 1px solid rgba(255, 255, 255, 0.2);
+                border-radius: 6px;
+                selection-background-color: #2196F3;
+                padding: 4px;
+            }
+            
+            QSpinBox::up-button, QSpinBox::down-button {
+                background: rgba(255, 255, 255, 0.1);
+                border: none;
+                width: 20px;
+                border-radius: 4px;
+            }
+            
+            QSpinBox::up-button:hover, QSpinBox::down-button:hover {
+                background: rgba(255, 255, 255, 0.2);
+            }
+            
+            /* Tablas */
+            QTableWidget {
+                background-color: rgba(255, 255, 255, 0.05);
+                color: #f8f9fa;
+                gridline-color: rgba(255, 255, 255, 0.1);
+                border: 1px solid rgba(255, 255, 255, 0.15);
+                border-radius: 10px;
+                font-size: 13px;
+            }
+            
+            QTableWidget::item {
+                padding: 8px;
+                border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            }
+            
+            QTableWidget::item:selected {
+                background-color: rgba(33, 150, 243, 0.3);
+                color: #ffffff;
+            }
+            
+            QTableWidget::item:hover {
+                background-color: rgba(255, 255, 255, 0.08);
+            }
+            
+            QHeaderView::section {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 rgba(33, 150, 243, 0.3), stop:1 rgba(33, 150, 243, 0.2));
+                color: #ffffff;
+                padding: 10px;
+                border: none;
+                border-right: 1px solid rgba(255, 255, 255, 0.1);
+                border-bottom: 2px solid rgba(33, 150, 243, 0.5);
+                font-weight: 600;
+                font-size: 13px;
+            }
+            
+            QHeaderView::section:first {
+                border-top-left-radius: 10px;
+            }
+            
+            QHeaderView::section:last {
+                border-top-right-radius: 10px;
+                border-right: none;
+            }
+            
+            /* Barra de progreso */
+            QProgressBar {
+                background: rgba(255, 255, 255, 0.08);
+                color: #ffffff;
+                border: 1px solid rgba(255, 255, 255, 0.15);
+                border-radius: 8px;
+                text-align: center;
+                font-weight: 600;
+                height: 25px;
+            }
+            
+            QProgressBar::chunk {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                    stop:0 #10ac84, stop:1 #1dd1a1);
+                border-radius: 7px;
+            }
+            
+            /* Scrollbar */
+            QScrollBar:vertical {
+                background: rgba(255, 255, 255, 0.05);
+                width: 12px;
+                border-radius: 6px;
+                margin: 0;
+            }
+            
+            QScrollBar::handle:vertical {
+                background: rgba(255, 255, 255, 0.2);
+                border-radius: 6px;
+                min-height: 30px;
+            }
+            
+            QScrollBar::handle:vertical:hover {
+                background: rgba(255, 255, 255, 0.3);
+            }
+            
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+                height: 0px;
+            }
+            
+            /* TextEdit */
+            QTextEdit {
+                background-color: rgba(255, 255, 255, 0.08);
+                color: #f8f9fa;
+                border: 1px solid rgba(255, 255, 255, 0.15);
+                border-radius: 8px;
+                padding: 8px;
+                font-size: 13px;
+                selection-background-color: #2196F3;
+            }
+            
+            QTextEdit:focus {
+                border: 2px solid #2196F3;
+                background-color: rgba(255, 255, 255, 0.12);
+            }
+            
+            /* Estilos para diálogos */
+            QDialog {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+                    stop:0 #1a1a2e, stop:1 #16213e);
+            }
+            
+            QLabel#tituloDialog {
+                color: #ffffff;
+                font-size: 16px;
+                font-weight: 700;
+                padding: 10px 0;
+            }
+            
+            QLabel#labelResumen {
+                color: #10ac84;
+                font-size: 15px;
+                font-weight: 600;
+                padding: 8px 12px;
+                background: rgba(16, 172, 132, 0.15);
+                border-radius: 8px;
+                border: 1px solid rgba(16, 172, 132, 0.3);
+            }
+            
+            QLabel#labelInfo {
+                color: #f8f9fa;
+                font-size: 14px;
+                padding: 12px;
+                background: rgba(255, 255, 255, 0.08);
+                border-radius: 8px;
+                border: 1px solid rgba(255, 255, 255, 0.15);
+            }
+            
+            QListWidget#listaDialog {
+                background-color: rgba(255, 255, 255, 0.08);
+                color: #f8f9fa;
+                border: 1px solid rgba(255, 255, 255, 0.15);
+                border-radius: 8px;
+                padding: 8px;
+                font-size: 13px;
+            }
+            
+            QListWidget#listaDialog::item {
+                padding: 10px;
+                border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+                border-radius: 6px;
+                margin: 2px 0;
+            }
+            
+            QListWidget#listaDialog::item:selected {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                    stop:0 rgba(33, 150, 243, 0.4), stop:1 rgba(33, 150, 243, 0.3));
+                color: #ffffff;
+                font-weight: 600;
+            }
+            
+            QListWidget#listaDialog::item:hover {
+                background: rgba(255, 255, 255, 0.12);
+            }
+            
+            QPushButton#btnDialog {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #2196F3, stop:1 #1976D2);
+                min-height: 40px;
+                font-size: 15px;
+                font-weight: 700;
+            }
+            
+            QPushButton#btnDialog:hover {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #42A5F5, stop:1 #2196F3);
+            }
+            
+            /* Placeholders */
+            QLineEdit[placeholderText]:!focus {
+                color: rgba(248, 249, 250, 0.5);
+            }
+            
+            /* MessageBox personalizado */
+            QMessageBox {
+                background-color: #16213e;
+            }
+            
+            QMessageBox QLabel {
+                color: #f8f9fa;
+                font-size: 13px;
+            }
+            
+            QMessageBox QPushButton {
+                min-width: 80px;
+                padding: 8px 16px;
+            }
         """)
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    ventana = VentasWindow()
-    ventana.showMaximized()
+    window = VentasWindow()
+    window.showMaximized()
     sys.exit(app.exec_())
