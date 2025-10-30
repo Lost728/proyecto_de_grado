@@ -4,26 +4,33 @@ from PyQt5.QtWidgets import (
     QLineEdit, QPushButton, QMessageBox, QWidget, QComboBox, QGraphicsBlurEffect
 )
 from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QPixmap
 import sqlite3
 import os
-from datetime import datetime
-import hashlib
-import bcrypt
 import subprocess
-import pathlib
+import bcrypt
 
 def obtener_db_path():
-    if getattr(sys, 'frozen', False):
-        exe_dir = os.path.dirname(sys.executable)
-        db_path = os.path.join(exe_dir, "pruebas.db")
-        if os.path.exists(db_path):
-            return db_path
-        base_path = sys._MEIPASS
-        return os.path.join(base_path, "pruebas.db")
-    else:
-        return os.path.abspath(os.path.join(os.path.dirname(__file__), "pruebas.db"))
+    return os.path.abspath(os.path.join(os.path.dirname(__file__), "pruebas.db"))
 
-db_path = obtener_db_path()
+def obtener_pixmap_fondo():
+    try:
+        db_path = obtener_db_path()
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        cursor.execute("SELECT datos FROM imagenes WHERE nombre LIKE '%mar%' LIMIT 1")
+        row = cursor.fetchone()
+        conn.close()
+        if row and row[0]:
+            datos = row[0]
+            pixmap = QPixmap()
+            pixmap.loadFromData(datos)
+            return pixmap
+    except Exception:
+        pass
+    return QPixmap()
+
+
 
 class InsertarEmpleadoWindow(QMainWindow):
     def __init__(self):
@@ -41,6 +48,20 @@ class InsertarEmpleadoWindow(QMainWindow):
             blur = QGraphicsBlurEffect(self.bg_label)
             blur.setBlurRadius(12)
             self.bg_label.setGraphicsEffect(blur)
+            self.bg_label.setAttribute(Qt.WA_TransparentForMouseEvents)
+            self.bg_label.lower()
+        else:
+            self.bg_label = QLabel(self)
+            self.bg_label.setScaledContents(True)
+            self.bg_label.setGeometry(0, 0, self.width(), self.height())
+            pixmap = obtener_pixmap_fondo()
+            if not pixmap.isNull():
+                self.bg_label.setPixmap(pixmap.scaled(self.size(), Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation))
+                blur = QGraphicsBlurEffect()
+                blur.setBlurRadius(14)
+                self.bg_label.setGraphicsEffect(blur)
+            else:
+                self.bg_label.setStyleSheet("background: #6a1b9a;")
             self.bg_label.setAttribute(Qt.WA_TransparentForMouseEvents)
             self.bg_label.lower()
 
@@ -152,6 +173,7 @@ class InsertarEmpleadoWindow(QMainWindow):
         if not contraseña_plana or len(contraseña_plana) < 4:
             QMessageBox.warning(self, "Advertencia", "La contraseña es obligatoria y debe tener al menos 4 caracteres.")
             return
+        confirmar_contraseña = self.campos["confirmar_contrasena"].text().strip()
         if contraseña_plana != confirmar_contraseña:
             QMessageBox.warning(self, "Advertencia", "Las contraseñas no coinciden. Por favor, verifique.")
             return
@@ -176,6 +198,7 @@ class InsertarEmpleadoWindow(QMainWindow):
             return
 
         try:
+            db_path = obtener_db_path()
             conn = sqlite3.connect(db_path)
             cursor = conn.cursor()
             # Asegúrate de que tu tabla empleado tenga el campo 'apellidos'
@@ -289,7 +312,9 @@ def abrir_aplicacion(nombre_py):
                         f"No se encontró el archivo:\n{exe_name} ni {nombre_py}")
 
 if __name__ == "__main__":
+    import sys
+    from PyQt5.QtWidgets import QApplication
     app = QApplication(sys.argv)
-    window = InsertarEmpleadoWindow()
-    window.showMaximized()
+    window = InsertarEmpleadoWindow()  # Aquí dentro puedes usar QPixmap, QLabel, etc.
+    window.show()
     sys.exit(app.exec_())
